@@ -11,8 +11,8 @@ class State:
     """
     12-state rigid-body aircraft state using Euler angles.
 
-    Inertial frame: NED-ish but with z positive UP for simplicity in Phase 1.
-      - Position: (x, y, z) [m]
+    Inertial frame: NED (North-East-Down).
+      - Position: (x, y, z) [m] where z is DOWN (so altitude = -z)
       - Attitude: (phi, theta, psi) roll/pitch/yaw [rad]
 
     Body frame:

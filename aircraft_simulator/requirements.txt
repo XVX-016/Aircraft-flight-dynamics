@@ -1,1 +1,7 @@
-﻿numpy\r\nscipy\r\nmatplotlib\r\nfastapi\r\nuvicorn\r\ncontrol\r\n
+﻿numpy
+scipy
+matplotlib
+fastapi
+uvicorn
+control
+pytest

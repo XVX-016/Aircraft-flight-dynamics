@@ -80,7 +80,7 @@ def derivatives_6dof(
     v_b = np.array([s.u, s.v, s.w], dtype=float)
 
     # gravity expressed in inertial then rotated to body
-    g_i = np.array([0.0, 0.0, -g], dtype=float)  # z up => gravity negative z
+    g_i = np.array([0.0, 0.0, g], dtype=float)  # NED: z is down
     g_b = C_bi.T @ g_i
 
     a_b = (forces_b_N / m) + g_b - np.cross(omega, v_b)
