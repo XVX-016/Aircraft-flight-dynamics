@@ -15,3 +15,4 @@ class AirspeedSensor(ScalarSensorBase):
     sample: SampleConfig = field(default_factory=lambda: SampleConfig(rate_hz=30.0, delay_s=0.05))
 
 
+

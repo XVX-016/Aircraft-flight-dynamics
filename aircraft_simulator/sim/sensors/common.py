@@ -85,3 +85,4 @@ class ScalarSensorBase:
         return self._last_out
 
 
+

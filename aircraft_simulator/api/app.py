@@ -212,3 +212,4 @@ def _handle_command(data: Dict[str, Any]) -> None:
         runtime.set_autopilot(bool(data.get("enabled", True)))
 
 
+

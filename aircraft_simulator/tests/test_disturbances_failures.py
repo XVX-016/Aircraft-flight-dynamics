@@ -22,3 +22,4 @@ def test_runs_with_wind_disturbance(tmp_path, monkeypatch):
     assert np.isfinite(df["truth_altitude_m"].iloc[-1])
 
 
+

@@ -15,3 +15,4 @@ class Altimeter(ScalarSensorBase):
     sample: SampleConfig = field(default_factory=lambda: SampleConfig(rate_hz=20.0, delay_s=0.10))
 
 
+
