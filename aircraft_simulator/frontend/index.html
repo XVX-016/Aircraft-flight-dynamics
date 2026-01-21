@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aircraft Simulator</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Three.js (ESM via import map) -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div class="title">Aircraft Flight Dynamics Simulator</div>
+        <div class="subtitle">Phase 4: Live 3D attitude + telemetry + control panel</div>
+      </header>
+
+      <main class="main">
+        <section class="viewport">
+          <div class="panel-title">3D Attitude View</div>
+          <div id="threeContainer" class="three-container"></div>
+          <div class="hud">
+            <div><span class="k">t</span> <span id="hud_t">0.00</span> s</div>
+            <div><span class="k">Alt</span> <span id="hud_alt">0</span> m</div>
+            <div><span class="k">V</span> <span id="hud_v">0</span> m/s</div>
+            <div><span class="k">Hdg</span> <span id="hud_hdg">0</span> deg</div>
+          </div>
+        </section>
+
+        <aside class="controls">
+          <div class="panel-title">Control Panel</div>
+
+          <div class="card">
+            <div class="card-title">Connection</div>
+            <div class="row">
+              <div class="pill" id="connStatus">DISCONNECTED</div>
+              <button id="btnConnect">Connect</button>
+              <button id="btnDisconnect" class="secondary">Disconnect</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Autopilot</div>
+            <div class="row">
+              <label class="toggle">
+                <input id="apEnabled" type="checkbox" checked />
+                <span>Enabled</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Targets</div>
+            <div class="grid">
+              <label>
+                <span>Airspeed (m/s)</span>
+                <input id="tgtV" type="number" value="35" step="0.5" />
+              </label>
+              <label>
+                <span>Altitude (m)</span>
+                <input id="tgtAlt" type="number" value="1000" step="10" />
+              </label>
+              <label>
+                <span>Heading (deg)</span>
+                <input id="tgtHdg" type="number" value="0" step="5" />
+              </label>
+            </div>
+            <div class="row">
+              <button id="btnSetTargets">Send Targets</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Wind (steady NED)</div>
+            <div class="grid">
+              <label>
+                <span>N (m/s)</span>
+                <input id="windN" type="number" value="0" step="1" />
+              </label>
+              <label>
+                <span>E (m/s)</span>
+                <input id="windE" type="number" value="0" step="1" />
+              </label>
+              <label>
+                <span>D (m/s)</span>
+                <input id="windD" type="number" value="0" step="1" />
+              </label>
+            </div>
+            <div class="row">
+              <button id="btnSetWind" class="secondary">Send Wind</button>
+            </div>
+          </div>
+        </aside>
+      </main>
+
+      <section class="telemetry">
+        <div class="panel-title">Telemetry</div>
+        <div class="charts">
+          <canvas id="chartAlt"></canvas>
+          <canvas id="chartV"></canvas>
+          <canvas id="chartHdg"></canvas>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="/static/main.js"></script>
+  </body>
+</html>
+
+

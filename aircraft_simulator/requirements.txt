@@ -5,3 +5,5 @@ fastapi
 uvicorn
 control
 pytest
+websockets
+pandas
