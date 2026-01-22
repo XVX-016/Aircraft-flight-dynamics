@@ -32,5 +32,29 @@ Thumbs.db
 Desktop.ini
 .idea/
 .vscode/
+*.swp
+*.swo
 
+# Node / Next.js
+node_modules/
+.next/
+out/
+build/
+dist/
+stats.json
+*.tsbuildinfo
+.npm
+.eslintcache
 
+# Interview & judging materials
+docs/interview/
+docs/panel/
+docs/judge_notes/
+docs/mock_interviews/
+docs/recruiter_notes/
+
+# Generated reports (keep generators, not outputs)
+reports/output/
+reports/figures/
+plots/output/
+logs/
