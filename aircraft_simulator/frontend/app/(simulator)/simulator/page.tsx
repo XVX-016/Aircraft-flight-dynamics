@@ -1,5 +1,11 @@
-import SimulationWorkspace from "@/components/flight-deck/SimulationWorkspace";
+import { Sidebar } from "@/components/simulator/Sidebar";
+import { Dashboard } from "@/components/simulator/Dashboard";
 
 export default function SimulatorPage() {
-    return <SimulationWorkspace />;
+    return (
+        <div className="flex h-screen bg-background overflow-hidden">
+            <Sidebar />
+            <Dashboard />
+        </div>
+    );
 }

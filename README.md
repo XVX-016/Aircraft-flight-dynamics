@@ -80,13 +80,39 @@ Output: `aircraft_simulator/reports/output/aircraft_control_report.pdf`
 
 ---
 
-## Key Files
+---
 
-*   `aircraft_simulator/sim/dynamics/equations.py`: 6-DOF equations of motion.
-*   `aircraft_simulator/sim/control/autopilot.py`: Control logic implementation.
-*   `aircraft_simulator/sim/control/gain_schedule.py`: Gain scheduling logic.
-*   `aircraft_simulator/sim/models/uav_longitudinal.py`: UAV-specific dynamics model.
-*   `aircraft_simulator/sim/analysis/monte_carlo.py`: Robustness testing script.
+## Project Structure
+
+The project is organized into modular components for scalability and clarity:
+
+### 1. Physics Engine (`/aircraft_simulator/sim`)
+- `dynamics/`: Non-linear and linearized 6-DOF equations of motion.
+- `control/`: LQR synthesis, gain scheduling, and autopilot logic.
+- `estimation/`: EKF implementation and sensor noise models.
+- `models/`: Fixed-wing aircraft and UAV configuration parameters.
+
+### 2. Analysis & Tools (`/aircraft_simulator`)
+- `api/`: FastAPI backend for real-time simulation data streaming.
+- `reports/`: Automated PDF report generators and validation metrics.
+- `scripts/`: Optimization and batch simulation utilities.
+
+### 3. Flight Deck Dashboard (`/aircraft_simulator/frontend`)
+- `app/`: Next.js App Router for navigation and simulated environment views.
+- `components/`:
+  - `simulator/`: Domain-specific components (3D View, Telemetry, Controls).
+  - `ui/`: Shared base UI components.
+- `stores/`: Simulation state management using Zustand.
+
+---
+
+## UI/UX Blueprint
+To maintain a professional, engineering-grade experience, we adhere to a "Boeing-grade" design system:
+- **Aesthetic**: Dark-themed, high-contrast UI with technical grid overlays.
+- **Palette**: Aviation Blue (Status), Safety Orange (Warnings), Aerospace Green (Success).
+- **Mockups**: Located in `aircraft_simulator/frontend/public/design/`.
+
+---
 
 ## Validation Metrics
 
