@@ -5,7 +5,7 @@ from typing import Dict, Optional
 
 import numpy as np
 
-from sim.aircraft.aerodynamics import ControlInputs
+from aircraft_simulator.sim.aircraft.aerodynamics import ControlInputs
 
 
 @dataclass

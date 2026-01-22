@@ -1,7 +1,8 @@
-﻿from sim.control.pid import PID
-from sim.control.autopilot import Autopilot, AutopilotGains, AutopilotTargets
-from sim.control.actuators import ActuatorState
-from sim.control.failure_modes import FailureManager
-from sim.control.lqr import lqr, LQRController
-from sim.control.gain_scheduling import GainSchedule1D, ScheduledPIDGains
+﻿from aircraft_simulator.sim.control.pid import PID
+from aircraft_simulator.sim.control.autopilot import Autopilot, AutopilotGains, AutopilotTargets
+from aircraft_simulator.sim.control.actuators import ActuatorState
+from aircraft_simulator.sim.control.failure_modes import FailureManager
+from aircraft_simulator.sim.control.lqr import lqr, LQRController
+from aircraft_simulator.sim.control.gain_scheduling import GainSchedule1D, ScheduledPIDGains
+from aircraft_simulator.sim.control.linearize import linearize, select_subsystem
 

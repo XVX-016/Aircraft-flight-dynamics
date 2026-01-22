@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from sim.sensors.common import NoiseConfig, SampleConfig, ScalarSensorBase
+from aircraft_simulator.sim.sensors.common import NoiseConfig, SampleConfig, ScalarSensorBase
 
 
 @dataclass

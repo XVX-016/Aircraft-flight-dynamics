@@ -7,21 +7,21 @@ from typing import Dict, Tuple
 
 import numpy as np
 
-from sim.aircraft.aerodynamics import ControlInputs
-from sim.aircraft.forces_moments import ActuatorLimits, forces_and_moments_body
-from sim.aircraft.parameters import AircraftParameters
-from sim.control.failure_modes import FailureManager
-from sim.control.actuators import ActuatorState
-from sim.control.autopilot import Autopilot, AutopilotTargets
-from sim.dynamics.equations import derivatives_6dof, post_step_sanitize, rotation_body_to_inertial
-from sim.dynamics.integrator import rk4_step
-from sim.state import State, airspeed
-from sim.environment.wind import WindModel
-from sim.sensors.airspeed import AirspeedSensor
-from sim.sensors.altimeter import Altimeter
-from sim.sensors.compass import Compass
-from sim.sensors.imu import IMU
-from sim.logger.logger import CsvLogger, default_log_path
+from aircraft_simulator.sim.aircraft.aerodynamics import ControlInputs
+from aircraft_simulator.sim.aircraft.forces_moments import ActuatorLimits, forces_and_moments_body
+from aircraft_simulator.sim.aircraft.parameters import AircraftParameters
+from aircraft_simulator.sim.control.failure_modes import FailureManager
+from aircraft_simulator.sim.control.actuators import ActuatorState
+from aircraft_simulator.sim.control.autopilot import Autopilot, AutopilotTargets
+from aircraft_simulator.sim.dynamics.equations import derivatives_6dof, post_step_sanitize, rotation_body_to_inertial
+from aircraft_simulator.sim.dynamics.integrator import rk4_step
+from aircraft_simulator.sim.state import State, airspeed
+from aircraft_simulator.sim.environment.wind import WindModel
+from aircraft_simulator.sim.sensors.airspeed import AirspeedSensor
+from aircraft_simulator.sim.sensors.altimeter import Altimeter
+from aircraft_simulator.sim.sensors.compass import Compass
+from aircraft_simulator.sim.sensors.imu import IMU
+from aircraft_simulator.sim.logger.logger import CsvLogger, default_log_path
 
 
 def truth_from_state(s: State) -> Dict[str, float]:

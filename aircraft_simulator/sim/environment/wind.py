@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from sim.environment.dryden import DrydenLikeTurbulence
+from aircraft_simulator.sim.environment.dryden import DrydenLikeTurbulence
 
 
 @dataclass

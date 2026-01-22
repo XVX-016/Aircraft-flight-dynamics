@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from sim.sensors.common import DelayLine, NoiseConfig, SampleConfig
+from aircraft_simulator.sim.sensors.common import DelayLine, NoiseConfig, SampleConfig
 
 
 @dataclass

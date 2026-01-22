@@ -5,8 +5,8 @@ from typing import Tuple
 
 import numpy as np
 
-from sim.aircraft.parameters import AircraftParameters, qbar
-from sim.state import State
+from aircraft_simulator.sim.aircraft.parameters import AircraftParameters, qbar
+from aircraft_simulator.sim.state import State
 
 
 @dataclass(frozen=True)

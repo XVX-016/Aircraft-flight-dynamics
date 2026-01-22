@@ -5,9 +5,9 @@ from typing import Tuple
 
 import numpy as np
 
-from sim.aircraft.aerodynamics import ControlInputs, compute_aero_forces_moments_body_from_air_vel
-from sim.aircraft.parameters import AircraftParameters
-from sim.state import State
+from aircraft_simulator.sim.aircraft.aerodynamics import ControlInputs, compute_aero_forces_moments_body_from_air_vel
+from aircraft_simulator.sim.aircraft.parameters import AircraftParameters
+from aircraft_simulator.sim.state import State
 
 
 @dataclass(frozen=True)

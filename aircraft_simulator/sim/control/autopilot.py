@@ -5,8 +5,8 @@ from typing import Dict
 
 import numpy as np
 
-from sim.aircraft.aerodynamics import ControlInputs
-from sim.control.pid import PID
+from aircraft_simulator.sim.aircraft.aerodynamics import ControlInputs
+from aircraft_simulator.sim.control.pid import PID
 
 
 def wrap_pi(a: float) -> float:

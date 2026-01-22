@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from sim.aircraft.parameters import AircraftParameters
-from sim.state import State
+from aircraft_simulator.sim.aircraft.parameters import AircraftParameters
+from aircraft_simulator.sim.state import State
 
 
 def _wrap_angle(a: float) -> float:

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from sim.sensors.common import NoiseConfig, SampleConfig, ScalarSensorBase
+from aircraft_simulator.sim.sensors.common import NoiseConfig, SampleConfig, ScalarSensorBase
 
 
 def wrap_pi(a: float) -> float:
