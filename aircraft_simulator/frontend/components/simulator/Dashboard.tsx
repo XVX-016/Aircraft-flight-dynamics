@@ -22,49 +22,59 @@ export function Dashboard() {
             </header>
 
             {/* Main Content Area */}
-            <main className="flex-1 overflow-y-auto p-8">
-                <div className="grid grid-cols-12 gap-8 h-full">
+            <main className="flex-1 overflow-y-auto p-8 hud-grid">
+                <div className="grid grid-cols-12 gap-8 h-full max-w-[1600px] mx-auto">
 
-                    {/* Left Column: 3D View & Recent Sims */}
-                    <div className="col-span-12 lg:col-span-8 space-y-8">
-                        <AircraftView />
+                    {/* Left Column: 3D View & Quick Actions (70% - 8 cols) */}
+                    <div className="col-span-12 lg:col-span-8 space-y-8 flex flex-col">
+                        <div className="flex-1 min-h-[500px] rounded-3xl overflow-hidden border border-slate-800 shadow-[inset_0_0_50px_rgba(0,0,0,0.5)] bg-black relative group">
+                            <AircraftView />
+                            {/* HUD Overlays */}
+                            <div className="absolute top-6 left-6 pointer-events-none space-y-1">
+                                <p className="text-[10px] font-mono text-primary uppercase tracking-[0.2em] opacity-70">Telemetry Feed 01</p>
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-2 h-2 bg-success rounded-full animate-pulse" />
+                                    <span className="text-xs font-mono text-slate-300 uppercase tracking-widest">Live Integration</span>
+                                </div>
+                            </div>
+                        </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Card title="Recent Altitude Test" className="hover:border-primary/50 transition-colors cursor-pointer">
-                                <div className="flex items-center space-x-4">
-                                    <div className="w-16 h-16 bg-slate-900 rounded border border-slate-800 flex items-center justify-center">
-                                        <span className="text-primary font-bold">#23</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Card title="Mission Profile" className="hover:border-primary/40 transition-all group">
+                                <div className="flex items-center justify-between">
+                                    <div className="space-y-1">
+                                        <h4 className="text-sm font-bold text-slate-200 group-hover:text-primary transition-colors">LQR Stability Check</h4>
+                                        <p className="text-[10px] text-slate-500 font-mono">ID: SIM-23-ALPHA</p>
                                     </div>
-                                    <div>
-                                        <h4 className="text-sm font-semibold text-slate-200">LQR Stability Check</h4>
-                                        <p className="text-xs text-slate-500">2 hours ago • NOMINAL</p>
+                                    <div className="text-right">
+                                        <p className="text-xs font-mono text-success">NOMINAL</p>
+                                        <p className="text-[9px] text-slate-600 font-mono">0.02s LATENCY</p>
                                     </div>
                                 </div>
                             </Card>
-                            <Card title="Gain Scheduling Validation" className="hover:border-primary/50 transition-colors cursor-pointer">
-                                <div className="flex items-center space-x-4">
-                                    <div className="w-16 h-16 bg-slate-900 rounded border border-slate-800 flex items-center justify-center">
-                                        <span className="text-warning font-bold">#22</span>
+                            <Card title="Robustness Analysis" className="hover:border-primary/40 transition-all group">
+                                <div className="flex items-center justify-between">
+                                    <div className="space-y-1">
+                                        <h4 className="text-sm font-bold text-slate-200 group-hover:text-primary transition-colors">Monte Carlo Run</h4>
+                                        <p className="text-[10px] text-slate-500 font-mono">ID: SIM-22-BETA</p>
                                     </div>
-                                    <div>
-                                        <h4 className="text-sm font-semibold text-slate-200">Monte Carlo Run</h4>
-                                        <p className="text-xs text-slate-500">5 hours ago • RMSE: 0.12</p>
+                                    <div className="text-right">
+                                        <p className="text-xs font-mono text-warning">EKF DRIFT</p>
+                                        <p className="text-[9px] text-slate-600 font-mono">RMSE: 0.12</p>
                                     </div>
                                 </div>
                             </Card>
                         </div>
 
-                        <button className="w-full py-4 bg-primary hover:bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/10 transition-all active:scale-[0.98]">
-                            QUICK-START NEW SIMULATION
+                        <button className="w-full py-5 bg-primary hover:bg-indigo-600 text-white font-bold text-sm tracking-[0.2em] rounded-2xl shadow-2xl shadow-indigo-500/20 transition-all active:scale-[0.99] uppercase">
+                            Initialize New Simulation Session
                         </button>
                     </div>
 
-                    {/* Right Column: Telemetry & Controls */}
-                    <div className="col-span-12 lg:col-span-4 space-y-8 h-full flex flex-col">
-                        <div className="flex-1">
-                            <TelemetryCharts />
-                        </div>
-                        <div className="shrink-0">
+                    {/* Right Column: Telemetry & Controls (30% - 4 cols) */}
+                    <div className="col-span-12 lg:col-span-4 space-y-8 flex flex-col">
+                        <TelemetryCharts />
+                        <div className="mt-auto">
                             <ControlPanel />
                         </div>
                     </div>
