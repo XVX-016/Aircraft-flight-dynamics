@@ -1,7 +1,21 @@
-﻿numpy
-scipy
-matplotlib
-fastapi
-uvicorn
-control
-pytest
+﻿# Core numerical & math
+numpy==1.26.4
+scipy==1.12.0
+sympy==1.12
+
+# Control systems
+control==0.9.4
+
+# Plotting & analysis
+matplotlib==3.8.3
+pandas==2.2.1
+seaborn==0.13.2
+tqdm==4.66.2
+
+# Backend API
+fastapi==0.110.0
+uvicorn==0.29.0
+pydantic==2.6.4
+
+# Reporting
+fpdf==1.7.2

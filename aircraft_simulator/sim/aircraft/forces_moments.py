@@ -5,9 +5,9 @@ from typing import Tuple
 
 import numpy as np
 
-from sim.aircraft.aerodynamics import ControlInputs, compute_aero_forces_moments_body
-from sim.aircraft.parameters import AircraftParameters
-from sim.state import State
+from aircraft_simulator.sim.aircraft.aerodynamics import ControlInputs, compute_aero_forces_moments_body_from_air_vel
+from aircraft_simulator.sim.aircraft.parameters import AircraftParameters
+from aircraft_simulator.sim.state import State
 
 
 @dataclass(frozen=True)
@@ -33,14 +33,23 @@ def thrust_force_body(u: ControlInputs, params: AircraftParameters) -> np.ndarra
 
 
 def forces_and_moments_body(
-    state: State, controls: ControlInputs, params: AircraftParameters, limits: ActuatorLimits
+    state: State,
+    controls: ControlInputs,
+    params: AircraftParameters,
+    limits: ActuatorLimits,
+    *,
+    uvw_air_mps: np.ndarray | None = None,
 ) -> Tuple[np.ndarray, np.ndarray, dict]:
     """
     Net forces/moments in body axes.
     """
     u = clamp_controls(controls, limits)
 
-    F_aero, M_aero, debug = compute_aero_forces_moments_body(state, u, params)
+    uvw_air = np.array([state.u, state.v, state.w], dtype=float) if uvw_air_mps is None else np.asarray(uvw_air_mps, dtype=float).reshape(3)
+    pqr = np.array([state.p, state.q, state.r], dtype=float)
+    F_aero, M_aero, debug = compute_aero_forces_moments_body_from_air_vel(
+        uvw_air_mps=uvw_air, pqr_radps=pqr, controls=u, params=params
+    )
     F_thrust = thrust_force_body(u, params)
 
     F = F_aero + F_thrust

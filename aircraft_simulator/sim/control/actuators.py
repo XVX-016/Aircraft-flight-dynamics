@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from sim.aircraft.aerodynamics import ControlInputs
-from sim.aircraft.forces_moments import ActuatorLimits, clamp_controls
+from aircraft_simulator.sim.aircraft.aerodynamics import ControlInputs
+from aircraft_simulator.sim.aircraft.forces_moments import ActuatorLimits, clamp_controls
 
 
 @dataclass

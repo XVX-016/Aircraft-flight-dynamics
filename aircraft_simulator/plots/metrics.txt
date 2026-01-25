@@ -1,0 +1,4 @@
+Altitude step metrics (truth_altitude_m -> 1100 m)
+overshoot_frac: 0.0
+rise_time_s: None
+settling_time_s: None
