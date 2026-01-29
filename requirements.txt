@@ -1,0 +1,11 @@
+numpy
+scipy
+matplotlib
+control
+sympy
+pandas
+fastapi
+uvicorn
+pydantic
+seaborn
+tqdm

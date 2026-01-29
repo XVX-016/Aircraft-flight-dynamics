@@ -58,3 +58,14 @@ reports/output/
 reports/figures/
 plots/output/
 logs/
+
+# 3D Assets & Models (Large binaries)
+*.glb
+*.gltf
+*.exr
+*.hdr
+*.fbx
+*.obj
+**/public/models/
+**/public/hdri/
+**/public/textures/

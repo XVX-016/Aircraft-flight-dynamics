@@ -1,126 +1,67 @@
-![alt text](image.png)# Aircraft Flight Dynamics & Control Analysis Tool
+# Aircraft Flight Dynamics Simulator
 
-![Project Status: Validated](https://img.shields.io/badge/Status-Internship--Ready-brightgreen)
-![Python 3.11](https://img.shields.io/badge/Python-3.11-blue)
-![Next.js](https://img.shields.io/badge/Frontend-Next.js-black)
+A high-fidelity, web-based 6-DOF aircraft flight simulator built with **Next.js**, **React Three Fiber**, and **Tailwind CSS**.
 
-## Overview
+## Features
 
-This project is a **control design and state estimation analysis tool** for fixed-wing aircraft, built as a learning and portfolio project to demonstrate applied aerospace systems engineering.
+### ✈️ High-Fidelity Physics
+- **6-DOF Rigid Body Dynamics**: Full simulation of forces and moments (Lift, Drag, Thrust, Gravity).
+- **Aerodynamic Model**: Configurable coefficients ($C_L$, $C_D$, $C_m$) based on Angle of Attack ($\alpha$) and Sideslip ($\beta$).
+- **Mass Properties**: Realistic inertia tensor and center of gravity management.
+- **Runge-Kutta 4** (or Euler) integration for stability.
 
-It focuses on:
-*   **Linearized Flight Dynamics**: 6-DOF rigid-body physics.
-*   **Optimal Control (LQR)**: Gain-scheduled controller synthesis and stability analysis.
-*   **State Estimation (EKF)**: Extended Kalman Filter with sensor noise modeling.
-*   **Validation**: Automated generation of engineering reports (PDF) with metrics.
+### 🎮 Pilot Deck (HUD)
+- **Glass Cockpit UI**: Minimalist, HUD-style overlay maximizing the 3D view.
+- **Real-Time Telemetry**: Altitude, Airspeed, Heading, Attitude (Roll/Pitch).
+- **Control Interface**: Visualizers for Throttle, Elevator, Aileron, and Rudder inputs.
+- **Flight Modes**: 
+  - **Takeoff**: Runway scene with ground interaction.
+  - **Free Flight**: Open sky for maneuvering.
 
-## Core Capabilities
+### 📊 Estimation & EKF (Extended Kalman Filter)
+- **tier-1 Estimation**: Implementation of a 15-state EKF.
+- **Sensor Models**: Simulated GPS (Position) and IMU (Gyro/Accel) with configurable noise and bias.
+- **State Estimation**: Fuses noisy sensor data to estimate optimal state ($\hat{x}$).
+- **Analysis Page**: Real-time plotting of True State vs. Estimated State.
 
-*   **Simulation**: 12-state 6-DOF rigid-body model (Euler angles) with RK4 integrator.
-*   **Control**: LQR feedback with gain scheduling for airspeed variations.
-*   **Estimation**: EKF for state reconstruction from noisy sensors (IMU, GPS, Pitot).
-*   **Analysis**: Monte Carlo robustness testing against stochastic wind gusts.
-*   **Reporting**: Automated generation of PDF design reports with eigenvalues, step responses, and RMSE metrics.
+### 💨 Flow Visualization
+- **GPU Particles**: Custom shader-based particle system visualizing local airflow.
+- **Physics-Driven**: Particles react to True Airspeed, AoA ($\alpha$), and Sideslip ($\beta$).
 
-## Technical Stack
+## Architecture
 
-*   **Backend**: Python, NumPy, SciPy, Control Library, FastAPI
-*   **Frontend**: Next.js (React), TailwindCSS, Recharts, Three.js
-*   **Analysis**: Matplotlib, Pandas, FPDF
+### Tech Stack
+- **Frontend**: React 19, Next.js 14 (App Router)
+- **3D Rendering**: React Three Fiber (Three.js)
+- **Styling**: Tailwind CSS v4 ("Stealth" Palette)
+- **State Management**: Zustand (UI), Custom Singleton (Physics Core)
+- **Math**: mathjs (EKF Matrices), custom Vector/Quaternion lib.
 
----
+### System Design
+1.  **Simulation Core**: A frame-rate independent physics loop running at 100Hz (`SimulationEngine`).
+2.  **Visuals**: A decoupled rendering loop interpolating state snapshots for smooth 60fps+ animation (`SimulationManager` + `SimulationScene`).
+3.  **Estimation**: An independent observer loop running the EKF, correcting estimates based on Sensor outputs.
 
-## Quick Start (Windows)
+## Getting Started
 
-### 1. Backend Setup (Physics Engine)
-
-```powershell
-# From project root
-python -m venv venv
-.\venv\Scripts\activate
-pip install -r aircraft_simulator/requirements.txt
-```
-
-### 2. Frontend Setup (Dashboard)
-
-```powershell
-cd aircraft_simulator/frontend
-npm install
-```
-
-### 3. Running the Simulation
-
-**Option A: Full Interactive UI**
-
-1.  **Start Backend**:
-    ```powershell
-    # Terminal 1 (Root)
-    .\venv\Scripts\activate
-    uvicorn aircraft_simulator.api.app:app --reload --port 8001
+1.  **Install Dependencies**:
+    ```bash
+    npm install
     ```
 
-2.  **Start Frontend**:
-    ```powershell
-    # Terminal 2 (aircraft_simulator/frontend)
+2.  **Run Development Server**:
+    ```bash
     npm run dev
     ```
 
-3.  **Open**: `http://localhost:3000`
+3.  **Open Simulator**:
+    Navigate to `http://localhost:3000`.
 
-**Option B: Generate Engineering Report**
+## Key Files
+- `lib/simulation/physics/`: Core dynamics and aerodynamics.
+- `lib/simulation/estimation/`: EKF implementation and sensor models.
+- `components/pilot/PilotDeck.tsx`: Main HUD interface.
+- `components/simulation/visuals/FlowField.tsx`: GPU flow visualization.
 
-Run the validation suite and generate a PDF report:
-
-```powershell
-# From project root (with venv activated)
-python requirements_figures.py
-python aircraft_simulator/reports/report_generator.py
-```
-Output: `aircraft_simulator/reports/output/aircraft_control_report.pdf`
-
----
-
----
-
-## Project Structure
-
-The project is organized into modular components for scalability and clarity:
-
-### 1. Physics Engine (`/aircraft_simulator/sim`)
-- `dynamics/`: Non-linear and linearized 6-DOF equations of motion.
-- `control/`: LQR synthesis, gain scheduling, and autopilot logic.
-- `estimation/`: EKF implementation and sensor noise models.
-- `models/`: Fixed-wing aircraft and UAV configuration parameters.
-
-### 2. Analysis & Tools (`/aircraft_simulator`)
-- `api/`: FastAPI backend for real-time simulation data streaming.
-- `reports/`: Automated PDF report generators and validation metrics.
-- `scripts/`: Optimization and batch simulation utilities.
-
-### 3. Flight Deck Dashboard (`/aircraft_simulator/frontend`)
-- `app/`: Next.js App Router for navigation and simulated environment views.
-- `components/`:
-  - `simulator/`: Domain-specific components (3D View, Telemetry, Controls).
-  - `ui/`: Shared base UI components.
-- `stores/`: Simulation state management using Zustand.
-
----
-
-## UI/UX Blueprint
-To maintain a professional, engineering-grade experience, we adhere to a "Boeing-grade" design system:
-- **Aesthetic**: Dark-themed, high-contrast UI with technical grid overlays.
-- **Palette**: Aviation Blue (Status), Safety Orange (Warnings), Aerospace Green (Success).
-- **Mockups**: Located in `aircraft_simulator/frontend/public/design/`.
-
----
-
-## Validation Metrics
-
-The system is validated using:
-*   **Closed-loop Eigenvalues**: Verified to be in the Left Half Plane (LHP).
-*   **Step Response**: Pitch tracking overshoot < 5%, Settling time < 2s.
-*   **EKF Innovation**: Zero-mean residual check.
-
----
-
-> Built for learning & aerospace systems engineering • Not flight-certified software.
+## License
+MIT
