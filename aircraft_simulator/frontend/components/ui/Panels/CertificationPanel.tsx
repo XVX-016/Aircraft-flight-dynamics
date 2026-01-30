@@ -1,14 +1,27 @@
 "use client";
 
-import { useSimulationStore } from "@/stores/useSimulationStore";
+import { useSim } from "@/lib/providers/SimProvider";
 import { validateState } from "@/lib/simulation/ValidationSystem";
 import { ShieldCheck, ShieldAlert, AlertTriangle, FileText } from "lucide-react";
 import { useMemo } from "react";
 
 export default function CertificationPanel() {
-    const { orientation, velocity, altitude } = useSimulationStore();
+    const { derived, truthState } = useSim();
 
-    const v = useMemo(() => validateState(orientation, velocity, altitude), [orientation, velocity, altitude]);
+    // Extract values from derived physics with safe defaults
+    const altitude = derived?.altitude ?? 0;
+    const airspeed = derived?.airspeed ?? 0;
+
+    // Euler angles from quaternion
+    const orientation: [number, number, number] = truthState
+        ? [
+            Math.atan2(2 * (truthState.q.w * truthState.q.x + truthState.q.y * truthState.q.z), 1 - 2 * (truthState.q.x ** 2 + truthState.q.y ** 2)),
+            Math.asin(2 * (truthState.q.w * truthState.q.y - truthState.q.z * truthState.q.x)),
+            Math.atan2(2 * (truthState.q.w * truthState.q.z + truthState.q.x * truthState.q.y), 1 - 2 * (truthState.q.y ** 2 + truthState.q.z ** 2))
+        ]
+        : [0, 0, 0];
+
+    const v = useMemo(() => validateState(orientation, airspeed, altitude), [orientation, airspeed, altitude]);
 
     return (
         <div className="absolute bottom-8 left-8 w-80 bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-xl p-5 shadow-2xl">
@@ -58,3 +71,4 @@ export default function CertificationPanel() {
         </div>
     );
 }
+

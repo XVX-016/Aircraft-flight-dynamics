@@ -1,14 +1,12 @@
 "use client";
 
-import { useRef, useMemo } from "react";
-import { useFrame } from "@react-three/fiber";
-import { Trail, Float } from "@react-three/drei";
+import { Trail } from "@react-three/drei";
 import * as THREE from "three";
-import { useSimulationStore } from "@/stores/useSimulationStore";
+import { useSim } from "@/lib/providers/SimProvider";
 
 export default function VortexTrails() {
-    const { orientation } = useSimulationStore();
-    const aoa = Math.abs(orientation[1] * (180 / Math.PI));
+    const { derived } = useSim();
+    const aoa = Math.abs((derived?.aoa ?? 0) * (180 / Math.PI));
     const intensity = Math.max(0, (aoa - 10) / 10); // Start appearing after 10 degrees AoA
 
     return (
@@ -35,3 +33,4 @@ export default function VortexTrails() {
         </group>
     );
 }
+

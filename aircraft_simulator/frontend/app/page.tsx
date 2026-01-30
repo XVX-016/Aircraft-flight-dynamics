@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import Navigation from '@/components/pilot/Navigation';
 import HeroSection from '@/components/pilot/HeroSection';
 import PilotDeck from '@/components/pilot/PilotDeck';
 import WindFlow from '@/components/pilot/WindFlow';
@@ -32,6 +31,12 @@ export default function LandingPage() {
       return;
     }
 
+    if (section === 'hangar') {
+      setShowDashboard(true);
+      setScene('hangar');
+      return;
+    }
+
     toast(`Section Access: ${section}`, {
       description: 'Engineering modules are loading...',
       duration: 2000,
@@ -50,8 +55,10 @@ export default function LandingPage() {
       {/* Dynamic Overlays */}
       <WindFlow />
 
-      {/* Navigation */}
-      <Navigation onNavigate={handleNavigate} />
+      {/* Dynamic Overlays */}
+      <WindFlow />
+
+      {/* Navigation - Moved to Layout */}
 
       {/* Layout State Machine */}
       {!showDashboard ? (

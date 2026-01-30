@@ -1,15 +1,15 @@
 "use client";
 
 import { useRef } from "react";
-import { ContactShadows, Environment } from "@react-three/drei";
+import { useGLTF, ContactShadows } from "@react-three/drei";
 import { Group } from "three";
-import { useSimulationStore } from "@/stores/useSimulationStore";
 import AirflowField from "../airflow/AirflowField";
 import VortexTrails from "../effects/VortexTrails";
 
 export default function HangarScene() {
     const planeRef = useRef<Group>(null);
-    const airflowEnabled = true; // Placeholder for toggle
+    const airflowEnabled = true;
+    const { scene } = useGLTF("/models/fighterplane/scene.gltf");
 
     return (
         <group>
@@ -33,25 +33,13 @@ export default function HangarScene() {
 
             {/* The Aircraft on a Platform */}
             <group ref={planeRef} position={[0, 0, 0]}>
-                {/* Mock Jet */}
-                <group scale={1.2} rotation={[0, Math.PI, 0]}>
-                    <mesh castShadow receiveShadow>
-                        <boxGeometry args={[1.5, 1, 6]} />
-                        <meshStandardMaterial color="#475569" roughness={0.3} metalness={0.8} />
-                    </mesh>
-                    <mesh position={[2.5, 0, 1]} castShadow receiveShadow>
-                        <boxGeometry args={[4, 0.1, 3]} />
-                        <meshStandardMaterial color="#334155" roughness={0.3} metalness={0.8} />
-                    </mesh>
-                    <mesh position={[-2.5, 0, 1]} castShadow receiveShadow>
-                        <boxGeometry args={[4, 0.1, 3]} />
-                        <meshStandardMaterial color="#334155" roughness={0.3} metalness={0.8} />
-                    </mesh>
-                    <mesh position={[0, 1, 2.5]} castShadow receiveShadow>
-                        <boxGeometry args={[0.2, 2, 2]} />
-                        <meshStandardMaterial color="#334155" roughness={0.3} metalness={0.8} />
-                    </mesh>
-                </group>
+                <primitive
+                    object={scene}
+                    scale={0.05}
+                    rotation={[0, Math.PI, 0]}
+                    castShadow
+                    receiveShadow
+                />
 
                 {/* Airflow Visualization Overlay */}
                 {airflowEnabled && <AirflowField />}
@@ -76,3 +64,5 @@ export default function HangarScene() {
         </group>
     );
 }
+
+useGLTF.preload("/models/fighterplane/scene.gltf");

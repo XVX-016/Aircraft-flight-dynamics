@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import SceneRoot from "@/components/3d/SceneRoot";
+import Navigation from "@/components/pilot/Navigation";
 import { Toaster } from "@/components/ui/sonner";
+import { SimProvider } from "@/lib/providers/SimProvider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
@@ -20,11 +22,14 @@ export default function RootLayout({
     return (
         <html lang="en" className={`${inter.variable} ${jetbrains.variable}`}>
             <body className="bg-background text-foreground antialiased overflow-x-hidden vignette">
-                <SceneRoot />
-                <div className="relative z-10">
-                    {children}
-                </div>
-                <Toaster />
+                <SimProvider>
+                    <Navigation />
+                    <SceneRoot />
+                    <div className="relative z-10">
+                        {children}
+                    </div>
+                    <Toaster />
+                </SimProvider>
             </body>
         </html>
     );

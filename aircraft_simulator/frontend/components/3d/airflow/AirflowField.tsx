@@ -4,6 +4,7 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useSimulationStore } from "@/stores/useSimulationStore";
+import { useSim } from "@/lib/providers/SimProvider";
 
 // GLSL Shaders for surface airflow visualization
 const vertexShader = `
@@ -67,10 +68,15 @@ const fragmentShader = `
 `;
 
 export default function AirflowField() {
-    const { orientation, velocity, qualityTier } = useSimulationStore();
+    const { qualityTier } = useSimulationStore();
+    const { derived } = useSim();
     const materialRef = useRef<THREE.ShaderMaterial>(null);
 
     const segments = qualityTier === 'high' ? 64 : qualityTier === 'mid' ? 32 : 16;
+
+    // Get flow data from derived physics
+    const airspeed = derived?.airspeed ?? 0;
+    const aoa = derived?.aoa ?? 0;
 
     const uniforms = useMemo(() => ({
         time: { value: 0 },
@@ -81,17 +87,13 @@ export default function AirflowField() {
     useFrame((state, delta) => {
         if (materialRef.current) {
             materialRef.current.uniforms.time.value += delta;
-            materialRef.current.uniforms.airflowIntensity.value = Math.min(velocity / 200, 1.5);
-            materialRef.current.uniforms.aoa.value = orientation[1] * (180 / Math.PI); // Pitch used as AoA proxy for hangar
+            materialRef.current.uniforms.airflowIntensity.value = Math.min(airspeed / 200, 1.5);
+            materialRef.current.uniforms.aoa.value = aoa * (180 / Math.PI);
         }
     });
 
     return (
         <mesh>
-            {/* We apply this to a slightly offset duplicate of the jet mesh or a volume */}
-            {/* For now, a bounding volume or we can wrap the primitive. */}
-            {/* High-end way: apply this material to a cloned version of the aircraft geometry. */}
-            {/* Simplified way for this pass: a centered sphere that we wrap around. */}
             <sphereGeometry args={[8, segments, segments]} />
             <shaderMaterial
                 ref={materialRef}
@@ -105,3 +107,4 @@ export default function AirflowField() {
         </mesh>
     );
 }
+

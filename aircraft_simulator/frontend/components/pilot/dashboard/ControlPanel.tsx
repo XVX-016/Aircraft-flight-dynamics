@@ -1,9 +1,23 @@
 "use client";
 
-import { useSimulationStore } from '@/stores/useSimulationStore';
+import { useState } from 'react';
+import { useSim } from '@/lib/providers/SimProvider';
 
 const ControlPanel = () => {
-    const { controls, setControl } = useSimulationStore();
+    const { setControls } = useSim();
+
+    // Local state for controls display (since SimProvider manages actual control input)
+    const [controls, setLocalControls] = useState({
+        throttle: 0.5,
+        elevator: 0,
+        aileron: 0,
+        rudder: 0
+    });
+
+    const handleControlChange = (id: string, value: number) => {
+        setLocalControls(prev => ({ ...prev, [id]: value }));
+        setControls({ [id]: value });
+    };
 
     const axes = [
         { label: 'THR', id: 'throttle', color: 'bg-white' },
@@ -41,7 +55,7 @@ const ControlPanel = () => {
                                 max={1}
                                 step="0.01"
                                 value={controls[axis.id as keyof typeof controls]}
-                                onChange={(e) => setControl(axis.id as any, parseFloat(e.target.value))}
+                                onChange={(e) => handleControlChange(axis.id, parseFloat(e.target.value))}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                             />
                             <div
@@ -61,3 +75,4 @@ const ControlPanel = () => {
 };
 
 export default ControlPanel;
+
