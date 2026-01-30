@@ -1,16 +1,21 @@
 "use client";
 
 import { useState } from 'react';
-import { useSimulationStore } from '@/stores/useSimulationStore';
+import { useSim } from '@/lib/providers/SimProvider';
 
 export default function TelemetryPanel() {
     const [activeTab, setActiveTab] = useState<'flight' | 'inputs' | 'ekf'>('flight');
-    const { velocity, altitude, orientation, controls } = useSimulationStore();
+    const { derived, truthState } = useSim();
 
-    // Simple helpers for formatting
-    const roll = (orientation[0] * 180 / Math.PI).toFixed(1);
-    const pitch = (orientation[1] * 180 / Math.PI).toFixed(1);
-    const hdg = (orientation[2] * 180 / Math.PI).toFixed(0);
+    // Safe defaults if state not yet available
+    const altitude = derived?.altitude ?? 0;
+    const airspeed = derived?.airspeed ?? 0;
+    const aoa = derived?.aoa ?? 0;
+
+    // Euler angles from quaternion (simplified approximation)
+    const roll = truthState ? Math.atan2(2 * (truthState.q.w * truthState.q.x + truthState.q.y * truthState.q.z), 1 - 2 * (truthState.q.x ** 2 + truthState.q.y ** 2)) * 180 / Math.PI : 0;
+    const pitch = truthState ? Math.asin(2 * (truthState.q.w * truthState.q.y - truthState.q.z * truthState.q.x)) * 180 / Math.PI : 0;
+    const yaw = truthState ? Math.atan2(2 * (truthState.q.w * truthState.q.z + truthState.q.x * truthState.q.y), 1 - 2 * (truthState.q.y ** 2 + truthState.q.z ** 2)) * 180 / Math.PI : 0;
 
     return (
         <div className="hud-panel animate-slide-in-right">
@@ -40,21 +45,20 @@ export default function TelemetryPanel() {
                 {activeTab === 'flight' && (
                     <div className="space-y-6">
                         <MetricRow label="Altitude" value={altitude.toFixed(0)} unit="FT" />
-                        <MetricRow label="Ind. Airspeed" value={velocity.toFixed(0)} unit="KTS" />
-                        <MetricRow label="Heading" value={hdg} unit="DEG" />
+                        <MetricRow label="Airspeed" value={airspeed.toFixed(0)} unit="M/S" />
+                        <MetricRow label="Heading" value={yaw.toFixed(0)} unit="DEG" />
                         <div className="grid grid-cols-2 gap-4">
-                            <MetricRow label="Roll" value={roll} unit="°" />
-                            <MetricRow label="Pitch" value={pitch} unit="°" />
+                            <MetricRow label="Roll" value={roll.toFixed(1)} unit="°" />
+                            <MetricRow label="Pitch" value={pitch.toFixed(1)} unit="°" />
                         </div>
+                        <MetricRow label="AoA" value={(aoa * 180 / Math.PI).toFixed(1)} unit="°" />
                     </div>
                 )}
 
                 {activeTab === 'inputs' && (
-                    <div className="space-y-4">
-                        <InputBar label="Throttle" value={controls.throttle} min={0} max={1} />
-                        <InputBar label="Elevator" value={controls.elevator} min={-1} max={1} center />
-                        <InputBar label="Aileron" value={controls.aileron} min={-1} max={1} center />
-                        <InputBar label="Rudder" value={controls.rudder} min={-1} max={1} center />
+                    <div className="space-y-4 text-xs font-mono text-white/60">
+                        <p className="text-white/30">Control inputs via useSim().setControls()</p>
+                        {/* TODO: Wire up control inputs from SimProvider */}
                     </div>
                 )}
 

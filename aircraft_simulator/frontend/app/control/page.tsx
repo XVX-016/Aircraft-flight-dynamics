@@ -151,17 +151,8 @@ const ControlAnalysisPage = () => {
             {/* Dynamic Overlays */}
             <WindFlow />
 
-            {/* Header */}
-            <header className="relative z-20 flex items-center justify-between p-8">
-                <Link
-                    href="/"
-                    className="flex items-center gap-3 text-white/50 hover:text-white transition-colors group"
-                >
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                    <span className="text-xs font-mono tracking-[0.2em] uppercase">Back to Deck</span>
-                </Link>
-                <span className="text-xs font-mono tracking-[0.3em] text-white/40">ADCS-SIM</span>
-            </header>
+            {/* Header - Handled Global Nav */}
+            <div className="pt-24" /> {/* Spacer for fixed nav */}
 
             {/* Main Content */}
             <div className="relative z-10 flex flex-col lg:flex-row gap-6 px-8 pb-8">

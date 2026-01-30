@@ -7,6 +7,7 @@ import { useSimulationStore } from "@/stores/useSimulationStore";
 import HomepageTakeoff from "./scenes/HomepageTakeoff";
 import HangarScene from "./scenes/HangarScene";
 import SpecsScene from "./scenes/SpecsScene";
+import EstimationScene from "./scenes/EstimationScene";
 import CameraRig from "./CameraRig";
 import PerformanceController from "./PerformanceController";
 
@@ -14,7 +15,7 @@ export default function SceneRoot() {
     const sceneState = useSimulationStore((state) => state.sceneState);
 
     return (
-        <div className="fixed inset-0 -z-10 pointer-events-none">
+        <div className="fixed inset-0 z-0 pointer-events-none">
             <Canvas
                 dpr={[1, 2]}
                 gl={{
@@ -50,7 +51,8 @@ export default function SceneRoot() {
                     {sceneState === 'takeoff' && <HomepageTakeoff />}
                     {sceneState === 'hangar' && <HangarScene />}
                     {sceneState === 'specs' && <SpecsScene />}
-                    {/* Other scenes (Specs) will be added here */}
+                    {sceneState === 'estimation' && <EstimationScene />}
+                    {/* Other scenes will be added here */}
                 </Suspense>
             </Canvas>
             <Loader />

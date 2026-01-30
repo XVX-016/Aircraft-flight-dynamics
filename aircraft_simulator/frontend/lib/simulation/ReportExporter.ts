@@ -1,8 +1,10 @@
-import { SimulationState } from "@/stores/useSimulationStore";
+import { TruthState } from "./types/state";
+import { DerivedPhysics } from "./derived-physics";
 
 export interface Snapshot {
     timestamp: string;
-    state: Partial<SimulationState>;
+    truth: TruthState;
+    derived: DerivedPhysics;
     validation: any;
 }
 
@@ -11,16 +13,11 @@ export interface Snapshot {
  * Captures simulation data for external analysis and reporting.
  */
 export const ReportExporter = {
-    captureSnapshot: (state: SimulationState, validation: any): Snapshot => {
+    captureSnapshot: (truth: TruthState, derived: DerivedPhysics, validation: any): Snapshot => {
         return {
             timestamp: new Date().toISOString(),
-            state: {
-                position: state.position,
-                orientation: state.orientation,
-                velocity: state.velocity,
-                altitude: state.altitude,
-                controls: state.controls
-            },
+            truth,
+            derived,
             validation
         };
     },
@@ -35,3 +32,4 @@ export const ReportExporter = {
         downloadAnchorNode.remove();
     }
 };
+

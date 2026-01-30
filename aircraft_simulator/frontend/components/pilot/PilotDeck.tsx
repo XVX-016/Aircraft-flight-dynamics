@@ -4,7 +4,7 @@ import StatusPanel from './dashboard/StatusPanel';
 import TelemetryPanel from './dashboard/TelemetryPanel';
 import MissionPanel from './dashboard/MissionPanel';
 import ControlPanel from './dashboard/ControlPanel';
-import { useSimulationStore } from '@/stores/useSimulationStore';
+import { useSim } from '@/lib/providers/SimProvider';
 
 interface DashboardProps {
     onInitialize: () => void;
@@ -69,22 +69,23 @@ const PilotDeck = ({ onInitialize }: DashboardProps) => {
 };
 
 function FooterData() {
-    // We need a way to access these. 
-    // SimulationStore has Position (NED). 
-    // Lat/Lon is not simulated yet (Flat Earth). 
-    // Show Sim State: ALT, VEL, HDG.
-    const { position, velocity, orientation } = useSimulationStore();
+    const { derived, truthState } = useSim();
 
-    // orientation: [phi, theta, psi] (rad)
-    const hdg = (orientation[2] * 180 / Math.PI).toFixed(0).padStart(3, '0');
-    const alt = (-position[2]).toFixed(0); // NED z is down
-    const vel = velocity.toFixed(0);
+    // Safe defaults if state not yet available
+    const alt = derived?.altitude?.toFixed(0) ?? '---';
+    const vel = derived?.airspeed?.toFixed(0) ?? '---';
+
+    // Yaw from quaternion
+    const yaw = truthState
+        ? Math.atan2(2 * (truthState.q.w * truthState.q.z + truthState.q.x * truthState.q.y), 1 - 2 * (truthState.q.y ** 2 + truthState.q.z ** 2)) * 180 / Math.PI
+        : 0;
+    const hdg = yaw.toFixed(0).padStart(3, '0');
 
     return (
         <div className="flex items-center gap-12 text-[10px] font-mono text-white/40 tracking-[0.2em] bg-black/40 backdrop-blur-md px-6 py-2 rounded-full border border-white/5">
             <span>SYS: ACTIVE</span>
-            <span>ALT: {alt} FT</span>
-            <span>SPD: {vel} KTS</span>
+            <span>ALT: {alt} M</span>
+            <span>SPD: {vel} M/S</span>
             <span>HDG: {hdg}°</span>
             <span>SIM: 6DOF</span>
         </div>

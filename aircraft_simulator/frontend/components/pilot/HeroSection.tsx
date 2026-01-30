@@ -63,12 +63,7 @@ const HeroSection = ({ onLaunch }: HeroSectionProps) => {
                     >
                         Launch Pilot Deck
                     </button>
-
-                    {/* Scroll indicator */}
-                    <div className="flex flex-col items-center gap-4">
-                        <span className="text-[10px] tracking-[0.4em] text-white/20 uppercase font-mono">Scroll</span>
-                        <div className="w-px h-12 bg-gradient-to-b from-white/20 to-transparent" />
-                    </div>
+                    {/* Scroll indicator removed */}
                 </div>
             </div>
         </section>

@@ -2,30 +2,24 @@
 
 import AircraftSpecs from "@/components/hangar/AircraftSpecs";
 import HangarViewer from "@/components/hangar/HangarViewer";
-import Navigation from "@/components/pilot/Navigation";
 import defaultAircraft from "@/lib/simulation/data/default_aircraft.json";
 import { AircraftConfig } from "@/lib/simulation/types/aircraft";
-import { toast } from "sonner"; // Assuming sonner is installed/used
+import { useSimulationStore } from "@/stores/useSimulationStore";
+import { useEffect } from "react";
 
-// Cast the default json to AircraftConfig to ensure types match regardless of strict json import
+// Cast the default json to AircraftConfig
 const aircraft: AircraftConfig = defaultAircraft as unknown as AircraftConfig;
 
 export default function HangarPage() {
+    const setScene = useSimulationStore((state) => state.setScene);
 
-    const handleNavigate = (section: string) => {
-        if (section === 'simulator') {
-            window.location.href = '/'; // Simple nav for now
-        } else {
-            toast(`Section Access: ${section}`, {
-                description: 'Module loading...',
-            });
-        }
-    };
+    useEffect(() => {
+        setScene('hangar');
+    }, [setScene]);
 
     return (
         <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
-            {/* Navigation */}
-            <Navigation onNavigate={handleNavigate} />
+            {/* Navigation handled globally */}
 
             <main className="pt-24 px-8 pb-12 max-w-[1920px] mx-auto">
                 <header className="mb-8 flex items-end justify-between">
@@ -60,3 +54,4 @@ export default function HangarPage() {
         </div>
     );
 }
+
