@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import { Group } from "three";
+import AirflowParticles from "../airflow/AirflowParticles";
 
 export default function HomepageTakeoff() {
     const planeRef = useRef<Group>(null);
@@ -11,12 +12,8 @@ export default function HomepageTakeoff() {
 
     useFrame((state, delta) => {
         if (planeRef.current) {
-            // Constant rotation (Turntable style)
-            planeRef.current.rotation.y += delta * 0.2;
-
-            // Gentle bobbing
-            planeRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
-            planeRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 0.3) * 0.05;
+            // Static orientation as requested ("Locked")
+            // Slight mouse parallax could be added here later if needed
         }
     });
 
@@ -32,13 +29,18 @@ export default function HomepageTakeoff() {
             />
             <pointLight position={[-10, -10, -10]} intensity={2} color="#00e680" />
 
-            <primitive
-                ref={planeRef}
-                object={scene}
-                scale={4.0}
-                rotation={[0, Math.PI / 4, 0]}
-                position={[0, 0, 0]}
-            />
+            {/* Aircraft Group - Profile View (Nose Right) */}
+            <group ref={planeRef} rotation={[0, -Math.PI / 2, 0]} position={[0, -1.5, 0]}>
+                <primitive
+                    object={scene}
+                    scale={4.0}
+                    rotation={[0, Math.PI, 0]}
+                    position={[0, 0, 0]}
+                />
+            </group>
+
+            {/* Physics-Based Airflow (GPU) */}
+            <AirflowParticles />
         </group>
     );
 }
