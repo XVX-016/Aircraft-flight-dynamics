@@ -30,22 +30,24 @@ export default function WindStreaks() {
 
     return (
         <Instances limit={limit} range={limit}>
-            <planeGeometry args={[0.05, 4]} />
+            <planeGeometry args={[0.02, 5]} />
             <meshBasicMaterial
                 color="#ffffff"
                 transparent
-                opacity={0.2}
+                opacity={0.3}
                 depthWrite={false}
                 blending={2} // Additive blending
+                side={2} // Double side
             />
             <group ref={instancesRef}>
                 {Array.from({ length: limit }).map((_, i) => (
                     <Instance
                         key={i}
+                        rotation={[Math.PI / 2, 0, 0]}
                         position={[
-                            (Math.random() - 0.5) * 40,
-                            (Math.random() - 0.5) * 20,
-                            -Math.random() * 300
+                            (Math.random() - 0.5) * 60,
+                            (Math.random() - 0.5) * 30,
+                            -Math.random() * 200
                         ]}
                     />
                 ))}

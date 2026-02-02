@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import WindFlow from '@/components/pilot/WindFlow';
 import { ArrowLeft } from 'lucide-react';
+import { useSimulationStore } from '@/stores/useSimulationStore';
 
 const ControlAnalysisPage = () => {
     const [gains, setGains] = useState({
@@ -17,6 +18,12 @@ const ControlAnalysisPage = () => {
 
     const [stabilityData, setStabilityData] = useState<{ x: number; y: number }[]>([]);
     const [bodeData, setBodeData] = useState<{ freq: number; mag: number; phase: number }[]>([]);
+
+    const setScene = useSimulationStore((state) => state.setScene);
+
+    useEffect(() => {
+        setScene('void');
+    }, [setScene]);
 
     useEffect(() => {
         // Generate stability data based on gains

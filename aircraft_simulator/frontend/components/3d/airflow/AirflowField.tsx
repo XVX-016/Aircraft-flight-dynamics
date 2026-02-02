@@ -24,6 +24,7 @@ const fragmentShader = `
     uniform float time;
     uniform float airflowIntensity;
     uniform float aoa; // Angle of Attack in degrees
+    uniform vec3 flowDirection; // Direction of airflow
     
     varying vec3 vNormal;
     varying vec3 vWorldPos;
@@ -35,17 +36,22 @@ const fragmentShader = `
     }
 
     void main() {
-        // Calculate flow alignment (dot product of normal and forward vector)
-        // In this local space, Z- is forward.
-        vec3 forward = vec3(0.0, 0.0, 1.0);
-        float alignment = dot(vNormal, forward);
+        // Calculate flow alignment (dot product of normal and flow vector)
+        // Flow comes FROM the direction, so we align with -flowDirection?
+        // Actually, usually we test alignment with the flow stream.
+        // If flow is along X+, vector is (1,0,0).
+        
+        float alignment = dot(vNormal, flowDirection);
         
         // Separation logic: high AoA or low alignment causes "turbulence"
         float stallThreshold = 15.0; // degrees
         float isStalling = smoothstep(stallThreshold - 5.0, stallThreshold + 5.0, abs(aoa));
         
-        // Moving "streak" pattern
-        float flow = fract(vWorldPos.z * 0.5 - time * (2.0 + airflowIntensity));
+        // Moving "streak" pattern along the flow direction
+        // We use dot product to project world pos onto flow axis
+        float posOnAxis = dot(vWorldPos, flowDirection);
+        float flow = fract(posOnAxis * 0.5 - time * (2.0 + airflowIntensity));
+        
         float streak = smoothstep(0.45, 0.5, flow) * smoothstep(0.55, 0.5, flow);
         
         // Color mapping: Blue (laminar) to Red (separated/stall)
@@ -67,7 +73,12 @@ const fragmentShader = `
     }
 `;
 
-export default function AirflowField() {
+interface AirflowFieldProps {
+    direction?: [number, number, number];
+    visibleStatic?: boolean;
+}
+
+export default function AirflowField({ direction = [0, 0, 1], visibleStatic = false }: AirflowFieldProps) {
     const { qualityTier } = useSimulationStore();
     const { derived } = useSim();
     const materialRef = useRef<THREE.ShaderMaterial>(null);
@@ -81,14 +92,25 @@ export default function AirflowField() {
     const uniforms = useMemo(() => ({
         time: { value: 0 },
         airflowIntensity: { value: 1.0 },
-        aoa: { value: 0 }
-    }), []);
+        aoa: { value: 0 },
+        flowDirection: { value: new THREE.Vector3(...direction) }
+    }), [direction]); // Re-create if direction prop changes
 
     useFrame((state, delta) => {
         if (materialRef.current) {
             materialRef.current.uniforms.time.value += delta;
-            materialRef.current.uniforms.airflowIntensity.value = Math.min(airspeed / 200, 1.5);
+
+            let intensity = Math.min(airspeed / 200, 1.5);
+            // Ensure minimum visibility if static mode is enabled
+            if (visibleStatic && intensity < 0.4) {
+                intensity = 0.4;
+            }
+
+            materialRef.current.uniforms.airflowIntensity.value = intensity;
             materialRef.current.uniforms.aoa.value = aoa * (180 / Math.PI);
+            // Ensure uniform is up to date (though useMemo handles init, dynamic updates to prop need this?)
+            // If direction changes infrequently, useMemo is enough, but accessing .value is safer
+            materialRef.current.uniforms.flowDirection.value.set(...direction);
         }
     });
 
@@ -103,6 +125,7 @@ export default function AirflowField() {
                 depthWrite={false}
                 uniforms={uniforms}
                 blending={THREE.AdditiveBlending}
+                side={THREE.DoubleSide}
             />
         </mesh>
     );

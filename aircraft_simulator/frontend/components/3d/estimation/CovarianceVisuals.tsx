@@ -19,6 +19,10 @@ interface CovarianceEllipsoidProps {
     confidence?: number; // 1-3 sigma (default 2 = 95%)
 }
 
+import { EigenvalueDecomposition, Matrix } from 'ml-matrix';
+
+// ... interface ...
+
 export default function CovarianceEllipsoid({
     position,
     covariance,
@@ -28,30 +32,62 @@ export default function CovarianceEllipsoid({
 
     // Compute ellipsoid axes from covariance eigenvalues
     const { scale, rotation } = useMemo(() => {
-        // Simplified: assume diagonal covariance for now
-        // Full implementation would need eigenvalue decomposition
-        const sigmaX = Math.sqrt(Math.max(covariance[0]?.[0] ?? 1, 0.01)) * confidence;
-        const sigmaY = Math.sqrt(Math.max(covariance[1]?.[1] ?? 1, 0.01)) * confidence;
-        const sigmaZ = Math.sqrt(Math.max(covariance[2]?.[2] ?? 1, 0.01)) * confidence;
+        try {
+            // EVD: P = V * D * V^-1
+            const P = new Matrix(covariance);
+            const evd = new EigenvalueDecomposition(P);
+            const eigenvalues = evd.realEigenvalues; // Symmetric P has real eigenvalues
+            const eigenvectors = evd.eigenvectorMatrix;
 
-        return {
-            scale: new THREE.Vector3(sigmaX, sigmaY, sigmaZ),
-            rotation: new THREE.Euler(0, 0, 0) // Would come from eigenvectors
-        };
+            // Sort eigenvalues to align axes (optional but good for consistency)
+            // ml-matrix usually returns sorted but not guaranteed order mapping to x,y,z axes
+            // We just map the 3 principal axes to the mesh scale/rotation directly.
+
+            // Get lengths (2-sigma = 2 * sqrt(lambda))
+            // Ensure non-negative (numerical noise)
+            const sx = Math.sqrt(Math.max(eigenvalues[0], 1e-6)) * confidence;
+            const sy = Math.sqrt(Math.max(eigenvalues[1], 1e-6)) * confidence;
+            const sz = Math.sqrt(Math.max(eigenvalues[2], 1e-6)) * confidence;
+
+            // Construct Rotation Matrix from Eigenvectors
+            // Three.js Matrix4 is column-major. ml-matrix is row-major/column-access heavy.
+            // Eigenvectors are columns in V.
+            const rotMat = new THREE.Matrix4();
+            rotMat.set(
+                eigenvectors.get(0, 0), eigenvectors.get(0, 1), eigenvectors.get(0, 2), 0,
+                eigenvectors.get(1, 0), eigenvectors.get(1, 1), eigenvectors.get(1, 2), 0,
+                eigenvectors.get(2, 0), eigenvectors.get(2, 1), eigenvectors.get(2, 2), 0,
+                0, 0, 0, 1
+            );
+
+            const euler = new THREE.Euler().setFromRotationMatrix(rotMat);
+
+            return {
+                scale: new THREE.Vector3(sx, sy, sz),
+                rotation: euler
+            };
+        } catch (e) {
+            console.warn("Covariance EVD failed", e);
+            return {
+                scale: new THREE.Vector3(1, 1, 1),
+                rotation: new THREE.Euler()
+            };
+        }
     }, [covariance, confidence]);
 
-    // Material with opacity based on uncertainty magnitude
+    // Material with opacity based on uncertainty magnitude (Volume-based metric)
     const material = useMemo(() => {
-        const avgSigma = (scale.x + scale.y + scale.z) / 3;
-        const opacity = Math.min(0.1 + avgSigma / 50, 0.4);
-
+        const volume = scale.x * scale.y * scale.z;
+        // Higher volume = more transparent to avoid visual clutter? 
+        // Or simplified: Just fixed opacity
         return new THREE.MeshBasicMaterial({
             color: 0x3b82f6, // Blue
             transparent: true,
-            opacity,
-            wireframe: false,
+            opacity: 0.3,
+            wireframe: true, // Wireframe is often better for technical look
             side: THREE.DoubleSide,
-            depthWrite: false
+            depthWrite: false, // Don't occlude inner stuff
+            blending: THREE.AdditiveBlending
         });
     }, [scale]);
 

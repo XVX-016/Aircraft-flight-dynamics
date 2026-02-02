@@ -8,7 +8,7 @@ import VortexTrails from "../effects/VortexTrails";
 
 export default function HangarScene() {
     const planeRef = useRef<Group>(null);
-    const airflowEnabled = true;
+    const airflowEnabled = false;
     const { scene } = useGLTF("/models/fighterplane/scene.gltf");
 
     return (
@@ -31,8 +31,8 @@ export default function HangarScene() {
                 rotation={[0, Math.PI / 2, 0]}
             />
 
-            {/* The Aircraft on a Platform */}
-            <group ref={planeRef} position={[0, 0, 0]}>
+            {/* The Aircraft on a Platform - Rotated to face right (Sideways view) */}
+            <group ref={planeRef} position={[0, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
                 <primitive
                     object={scene}
                     scale={0.05}
@@ -42,7 +42,7 @@ export default function HangarScene() {
                 />
 
                 {/* Airflow Visualization Overlay */}
-                {airflowEnabled && <AirflowField />}
+                {airflowEnabled && <AirflowField visibleStatic direction={[-1, 0, 0]} />}
                 <VortexTrails />
             </group>
 

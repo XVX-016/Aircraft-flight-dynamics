@@ -9,16 +9,17 @@ const Navigation = () => {
     const setScene = useSimulationStore((state) => state.setScene);
 
     const navItems = [
-        { label: 'Simulator', id: 'simulator', path: '/' },
+        { label: 'Flight Lab', id: 'flight', path: '/' },
         { label: 'Hangar', id: 'hangar', path: '/hangar' },
         { label: 'LQR Control', id: 'lqr', path: '/control' },
         { label: 'EKF Estimation', id: 'ekf', path: '/estimation' },
-        { label: 'Validation', id: 'validation', path: null }, // Placeholder
+        { label: 'Validation', id: 'validation', path: '/validation' },
     ];
 
     const handleClick = (id: string, path: string | null) => {
-        if (id === 'simulator') setScene('takeoff');
+        if (id === 'flight') setScene('takeoff');
         if (id === 'hangar') setScene('hangar');
+        if (id === 'validation') setScene('void');
     };
 
     return (

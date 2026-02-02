@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { useSim } from "@/lib/providers/SimProvider";
 import EstimateGhost from "../estimation/EstimateGhost";
 import CovarianceEllipsoid from "../estimation/CovarianceVisuals";
+import { useSimulationStore } from "@/stores/useSimulationStore";
 
 /**
  * ESTIMATION SCENE
@@ -35,6 +36,22 @@ export default function EstimationScene({
     showEllipsoid = true
 }: EstimationSceneProps) {
     const { truthState } = useSim();
+    const estimationData = useSimulationStore((state) => ({
+        estState: state.estimatedState,
+        cov: state.covariance
+    }));
+
+    // Prefer Store data (Bridge from Validation Lab), fallback to Props, then Defaults
+    const estPos = estimationData.estState?.position ?? estimatedPosition;
+    // const estRot = estimationData.estState?.rotation ?? estimatedOrientation; // Not used yet for ghost orientation if not passed?
+
+    // Covariance Slicing: Ensure we have 3x3 for Position
+    // If 9x9 (P), take top-left 3x3. 
+    const activeCov = estimationData.cov
+        ? (estimationData.cov.length > 3
+            ? estimationData.cov.slice(0, 3).map(row => row.slice(0, 3))
+            : estimationData.cov)
+        : positionCovariance;
 
     // Default position if no truth state available
     const truthPos = truthState ? {
@@ -67,18 +84,18 @@ export default function EstimationScene({
             {/* Estimated Aircraft (Ghost) */}
             {showGhost && (
                 <EstimateGhost
-                    estimatedPosition={estimatedPosition}
-                    estimatedOrientation={estimatedOrientation}
+                    estimatedPosition={estPos}
+                    estimatedOrientation={estimatedOrientation} // TODO: Add orientation to store bridge
                     truthPosition={truthPos}
                     showSeparationLine={true}
                 />
             )}
 
             {/* Position Covariance Ellipsoid */}
-            {showEllipsoid && (
+            {showEllipsoid && activeCov && (
                 <CovarianceEllipsoid
-                    position={estimatedPosition}
-                    covariance={positionCovariance}
+                    position={estPos}
+                    covariance={activeCov}
                     confidence={2}
                 />
             )}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import HeroSection from '@/components/pilot/HeroSection';
 import PilotDeck from '@/components/pilot/PilotDeck';
-import WindFlow from '@/components/pilot/WindFlow';
+// WindFlow removed for physics fidelity
 import { toast } from 'sonner';
 import { useSimulationStore } from '@/stores/useSimulationStore';
 
@@ -53,10 +53,7 @@ export default function LandingPage() {
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Dynamic Overlays */}
-      <WindFlow />
-
-      {/* Dynamic Overlays */}
-      <WindFlow />
+      {/* Physics Airflow via SceneRoot */}
 
       {/* Navigation - Moved to Layout */}
 

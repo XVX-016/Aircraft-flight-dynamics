@@ -134,6 +134,15 @@ export class SimulationEngine {
             q
         };
     }
+
+    /**
+     * Deterministic Prediction Step (Stateless)
+     * Used by ValidationSystem for Numerical Jacobians
+     */
+    public predictDeterminstic(state: TruthState, dt: number): TruthState {
+        // Use current controls as constant for the step
+        return this.rigidBody.step(state, this.currentControls, dt);
+    }
 }
 
 // Singleton Instance

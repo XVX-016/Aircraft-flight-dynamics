@@ -8,13 +8,8 @@ const HeroSection = ({ onLaunch }: HeroSectionProps) => {
     return (
         <section className="relative z-10 flex flex-col items-center justify-center min-h-screen px-8 overflow-hidden">
             {/* Background Radar Grid (Simulated with CSS) */}
-            <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-20">
-                <div className="w-[800px] h-[800px] border border-white/10 rounded-full" />
-                <div className="absolute w-[600px] h-[600px] border border-white/5 rounded-full" />
-                <div className="absolute w-[400px] h-[400px] border border-white/5 rounded-full" />
-                <div className="absolute w-px h-full bg-white/5" />
-                <div className="absolute w-full h-px bg-white/5" />
-            </div>
+            {/* Background Radar Grid - REMOVED for Physics Flow */}
+            <div className="absolute inset-0 pointer-events-none" />
 
             {/* Logo/Brand */}
             <div

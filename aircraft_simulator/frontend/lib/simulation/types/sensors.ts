@@ -48,7 +48,7 @@ export interface SensorModel {
      * @param truth The ground truth state from physics
      * @param dt Time step since last update
      */
-    measure(truth: TruthState, dt: number): Measurement | null; // Returns null if not time to measure
+    measure(truth: TruthState, dt: number, simTime: number): Measurement | null; // Returns null if not time to measure
 }
 
 /**

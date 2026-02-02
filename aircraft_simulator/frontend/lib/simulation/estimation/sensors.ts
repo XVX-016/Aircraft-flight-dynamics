@@ -2,6 +2,7 @@ import { SensorModel, Measurement, SensorConfig } from "../types/sensors";
 import { TruthState } from "../types/state";
 import { Vec3 } from "../physics/math-utils";
 import * as math from "mathjs";
+import { faultInjector } from "../faults";
 
 // Utils
 function gaussianRandom(mean = 0, stdev = 1) {
@@ -21,7 +22,7 @@ export class GPS implements SensorModel {
         this.config = config;
     }
 
-    measure(truth: TruthState, dt: number): Measurement | null {
+    measure(truth: TruthState, dt: number, simTime: number): Measurement | null {
         // Rate check
         // Ideally handled by caller or accumulating time. 
         // For simplicity, we assume caller checks or we just output always and noise handles it?
@@ -37,12 +38,25 @@ export class GPS implements SensorModel {
             gaussianRandom(0, this.config.noiseSigma * 2) // Vertical usually worse
         ];
 
+        const rawZ = [
+            truth.p.x + noise[0],
+            truth.p.y + noise[1],
+            truth.p.z + noise[2]
+        ];
+
+        // Apply Faults
+        const corruptedZ = faultInjector.apply('gps_pos', rawZ, simTime);
+        // Wait, 'dt' is passed, but not 'time'. 
+        // We should update 'measure' (and SensorModel) to take 'time' or we rely on 'dt' accumulation?
+        // GPS has 'lastUpdateTime'.
+        // Let's use performance.now() / 1000 or similar if we are real-time, 
+        // BUT SimulationEngine should pass simTime. 
+        // See fix below for dt usage.
+
+        if (!corruptedZ) return null;
+
         return {
-            z: [
-                truth.p.x + noise[0],
-                truth.p.y + noise[1],
-                truth.p.z + noise[2]
-            ],
+            z: corruptedZ,
             R: [
                 [this.config.noiseSigma ** 2, 0, 0],
                 [0, this.config.noiseSigma ** 2, 0],
@@ -68,12 +82,14 @@ export class IMU implements SensorModel {
     id: string = "imu_1";
     type: "IMU" = "IMU";
     config: SensorConfig = { updateRateHz: 100, noiseSigma: 0.02 }; // rad/s, m/s2
+    lastUpdateTime: number = 0;
 
     configure(config: SensorConfig) {
         this.config = config;
     }
 
-    measure(truth: TruthState, dt: number): Measurement | null {
+    measure(truth: TruthState, dt: number, simTime: number): Measurement | null {
+        this.lastUpdateTime = simTime; // Track time for internal state if needed
         // IMU measures: [ax, ay, az, wx, wy, wz]
         // Accel: Gravity + Body Accel + Bias + Noise
         // Gyro: Body Rates + Bias + Noise
@@ -132,8 +148,23 @@ export class IMU implements SensorModel {
             z: -g_body.z + gaussianRandom(0, noiseAccel) + truth.b_a.z
         };
 
+        // Apply Faults
+        // IMU is one measurement vector z[6], but we split control/faults often by Accel vs Gyro logic.
+        // Our FaultControlPanel splits them: 'imu_accel', 'imu_gyro'.
+        // So we apply separately and merge.
+
+        // Sim time is now passed explicitly
+
+        const rawAccel = [a_meas.x, a_meas.y, a_meas.z];
+        const rawGyro = [w_meas.x, w_meas.y, w_meas.z];
+
+        const corAccel = faultInjector.apply('imu_accel', rawAccel, simTime);
+        const corGyro = faultInjector.apply('imu_gyro', rawGyro, simTime);
+
+        if (!corAccel || !corGyro) return null; // Dropout
+
         return {
-            z: [a_meas.x, a_meas.y, a_meas.z, w_meas.x, w_meas.y, w_meas.z],
+            z: [...corAccel, ...corGyro],
             R: [
                 // Diagonal 6x6
                 ...Array(3).fill([noiseAccel ** 2, 0, 0, 0, 0, 0]), // Accel rows (simplified structure)
