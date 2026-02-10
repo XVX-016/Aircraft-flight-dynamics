@@ -1,68 +1,25 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import HeroSection from '@/components/pilot/HeroSection';
-import PilotDeck from '@/components/pilot/PilotDeck';
-// WindFlow removed for physics fidelity
-import { toast } from 'sonner';
 import { useSimulationStore } from '@/stores/useSimulationStore';
 
 export default function LandingPage() {
-  const [showDashboard, setShowDashboard] = useState(false);
   const setScene = useSimulationStore((state) => state.setScene);
 
   useEffect(() => {
+    // Landing page always shows the cinematic takeoff scene
     setScene('takeoff');
   }, [setScene]);
 
-  const handleLaunch = () => {
-    setShowDashboard(true);
-    setScene('hangar');
-    toast.success('System Initialized', {
-      description: 'Entering Pilot Control Interface.',
-      duration: 2000,
-    });
-  };
-
-  const handleNavigate = (section: string) => {
-    if (section === 'simulator') {
-      setShowDashboard(false);
-      setScene('takeoff');
-      return;
-    }
-
-    if (section === 'hangar') {
-      setShowDashboard(true);
-      setScene('hangar');
-      return;
-    }
-
-    toast(`Section Access: ${section}`, {
-      description: 'Engineering modules are loading...',
-      duration: 2000,
-    });
-  };
-
-  const handleInitialize = () => {
-    toast.success('Simulation Active', {
-      description: 'ADCS real-time link established.',
-      duration: 3000,
-    });
-  };
+  // HandleLaunch is now handled by the Link in HeroSection, 
+  // but we can pass a dummy or remove the prop if we update HeroSection first.
+  // Ideally HeroSection handles navigation internally via Link.
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Dynamic Overlays */}
-      {/* Physics Airflow via SceneRoot */}
-
-      {/* Navigation - Moved to Layout */}
-
-      {/* Layout State Machine */}
-      {!showDashboard ? (
-        <HeroSection onLaunch={handleLaunch} />
-      ) : (
-        <PilotDeck onInitialize={handleInitialize} />
-      )}
+      {/* Hero Section manages its own navigation now */}
+      <HeroSection />
 
       {/* Corner decorations */}
       <div className="fixed top-0 left-0 w-32 h-32 border-l border-t border-white/5 pointer-events-none z-20" />

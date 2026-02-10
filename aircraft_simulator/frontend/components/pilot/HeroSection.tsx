@@ -1,23 +1,15 @@
 "use client";
 
-interface HeroSectionProps {
-    onLaunch: () => void;
-}
+import Link from "next/link";
 
-const HeroSection = ({ onLaunch }: HeroSectionProps) => {
+const HeroSection = () => {
     return (
         <section className="relative z-10 flex flex-col items-center justify-center min-h-screen px-8 overflow-hidden">
             {/* Background Radar Grid (Simulated with CSS) */}
             {/* Background Radar Grid - REMOVED for Physics Flow */}
             <div className="absolute inset-0 pointer-events-none" />
 
-            {/* Logo/Brand */}
-            <div
-                className="absolute top-8 left-8 opacity-0 animate-fade-in"
-                style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}
-            >
-                <span className="text-xs font-mono tracking-[0.3em] text-white/40">ADCS-SIM</span>
-            </div>
+            {/* Logo/Brand - REMOVED (Handled by Global Navigation) */}
 
             {/* Main Content */}
             <div className="text-center z-20">
@@ -52,12 +44,12 @@ const HeroSection = ({ onLaunch }: HeroSectionProps) => {
 
                 {/* CTA Button */}
                 <div className="flex flex-col items-center gap-12 opacity-0 animate-scale-in" style={{ animationDelay: '1s', animationFillMode: 'forwards' }}>
-                    <button
-                        onClick={onLaunch}
+                    <Link
+                        href="/flight-lab"
                         className="px-12 py-4 border border-white/20 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all duration-300 text-xs font-mono tracking-[0.3em] uppercase"
                     >
                         Launch Pilot Deck
-                    </button>
+                    </Link>
                     {/* Scroll indicator removed */}
                 </div>
             </div>
