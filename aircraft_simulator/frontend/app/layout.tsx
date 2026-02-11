@@ -21,13 +21,13 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en" className={`${inter.variable} ${jetbrains.variable}`}>
-            <body className="bg-background text-foreground antialiased overflow-x-hidden vignette">
+            <body className="bg-[#050505] text-slate-200 antialiased overflow-x-hidden vignette">
                 <SimProvider>
                     <Navigation />
                     <SceneRoot />
-                    <div className="relative z-10">
+                    <main className="pt-16 relative z-10">
                         {children}
-                    </div>
+                    </main>
                     <Toaster />
                 </SimProvider>
             </body>

@@ -27,21 +27,21 @@ const ControlPanel = () => {
     ];
 
     return (
-        <div className="hud-panel animate-slide-in-right" style={{ animationDelay: '0.4s' }}>
-            <div className="flex items-center gap-2 mb-4">
-                <span className="text-[10px] font-mono tracking-[0.2em] text-white/50 uppercase">Manual Control</span>
+        <div className="bg-black/30 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-[0_0_40px_rgba(0,0,0,0.4)] animate-slide-in-right z-20" style={{ animationDelay: '0.4s' }}>
+            <div className="flex items-center gap-2 mb-6">
+                <span className="text-[10px] font-mono tracking-[0.3em] text-white/40 uppercase">Manual Control</span>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-7">
                 {axes.map((axis) => (
-                    <div key={axis.id} className="space-y-2">
+                    <div key={axis.id} className="space-y-3">
                         <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em]">{axis.label}</span>
-                            <span className="text-[11px] font-mono text-white/60">{(controls[axis.id as keyof typeof controls] * 100).toFixed(0)}%</span>
+                            <span className="text-[10px] font-mono text-white/20 uppercase tracking-[0.3em] italic">{axis.label}</span>
+                            <span className="text-[11px] font-mono text-white/60 tracking-widest">{(controls[axis.id as keyof typeof controls] * 100).toFixed(0)}%</span>
                         </div>
-                        <div className="relative h-1.5 bg-white/5 rounded-full overflow-hidden group">
+                        <div className="relative h-[2px] bg-white/5 rounded-full overflow-hidden group">
                             <div
-                                className={`h-full ${axis.color} transition-all duration-150 rounded-full`}
+                                className={`h-full ${axis.color} opacity-40 transition-all duration-150 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.1)]`}
                                 style={{
                                     width: `${Math.abs(controls[axis.id as keyof typeof controls] * 100)}%`,
                                     marginLeft: axis.id !== 'throttle' ? (controls[axis.id as keyof typeof controls] < 0 ? '0' : '50%') : '0',
@@ -59,11 +59,11 @@ const ControlPanel = () => {
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                             />
                             <div
-                                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white/80 rounded-full shadow-[0_0_15px_rgba(255,255,255,0.4)] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
                                 style={{
                                     left: axis.id === 'throttle'
-                                        ? `calc(${controls[axis.id as keyof typeof controls] * 100}% - 8px)`
-                                        : `calc(${(controls[axis.id as keyof typeof controls] + 1) * 50}% - 8px)`
+                                        ? `calc(${controls[axis.id as keyof typeof controls] * 100}% - 6px)`
+                                        : `calc(${(controls[axis.id as keyof typeof controls] + 1) * 50}% - 6px)`
                                 }}
                             />
                         </div>
@@ -75,4 +75,3 @@ const ControlPanel = () => {
 };
 
 export default ControlPanel;
-

@@ -5,6 +5,7 @@ import { useGLTF, ContactShadows } from "@react-three/drei";
 import { Group } from "three";
 import AirflowField from "../airflow/AirflowField";
 import VortexTrails from "../effects/VortexTrails";
+import { AIRCRAFT_SCALE, AIRCRAFT_POSITION } from "@/lib/simulation/sceneConstants";
 
 export default function HangarScene() {
     const planeRef = useRef<Group>(null);
@@ -32,10 +33,10 @@ export default function HangarScene() {
             />
 
             {/* The Aircraft on a Platform - Rotated to face right (Sideways view) */}
-            <group ref={planeRef} position={[0, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+            <group ref={planeRef} position={AIRCRAFT_POSITION} rotation={[0, Math.PI / 2, 0]}>
                 <primitive
                     object={scene}
-                    scale={0.05}
+                    scale={AIRCRAFT_SCALE}
                     rotation={[0, Math.PI, 0]}
                     castShadow
                     receiveShadow
