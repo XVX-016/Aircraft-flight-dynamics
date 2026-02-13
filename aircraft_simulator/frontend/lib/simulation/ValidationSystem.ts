@@ -213,3 +213,33 @@ export class ValidationSystem {
         };
     }
 }
+
+/**
+ * Airworthiness Validation Logic
+ */
+export function validateState(orientation: [number, number, number], airspeed: number, altitude: number) {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Max Bank (Roll) > 60 deg
+    if (Math.abs(orientation[0]) > 1.047) errors.push("CRITICAL: Structural bank limit exceeded (>60°)");
+
+    // Max Pitch > 30 deg
+    if (Math.abs(orientation[1]) > 0.523) errors.push("CRITICAL: Unusual attitude (Pitch >30°)");
+
+    // Stall Speed approx 45 m/s
+    if (airspeed < 45) errors.push("WARNING: Airspeed below power-off stall speed");
+
+    // Max Altitude 18,000 m
+    if (altitude > 18000) errors.push("CRITICAL: Service ceiling exceeded");
+
+    // Warnings
+    if (airspeed > 250) warnings.push("Vne exceedance risk: reduce throttle");
+    if (altitude < 100) warnings.push("Ground proximity alert");
+
+    return {
+        isValid: errors.length === 0,
+        errors,
+        warnings
+    };
+}

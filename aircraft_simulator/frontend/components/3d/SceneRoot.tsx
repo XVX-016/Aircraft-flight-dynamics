@@ -15,7 +15,7 @@ export default function SceneRoot() {
     const sceneState = useSimulationStore((state) => state.sceneState);
 
     return (
-        <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="w-full h-full absolute inset-0 -z-10 pointer-events-none">
             <Canvas
                 dpr={[1, 2]}
                 gl={{

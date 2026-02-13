@@ -1,41 +1,35 @@
 "use client";
 
 import { useFrame, useThree } from "@react-three/fiber";
-import { Vector3, Quaternion } from "three";
+import { Vector3 } from "three";
 import { useSimulationStore } from "@/stores/useSimulationStore";
 import { useRef } from "react";
-
-const CAMERA_STATES = {
-    takeoff: { pos: [0, 4, 18], target: [0, 1, 0] },
-    hangar: { pos: [8, 4, 12], target: [0, 1, 0] },
-    specs: { pos: [0, 2, 8], target: [0, 0, 0] },
-    estimation: { pos: [0, 50, 50], target: [0, 0, 0] }, // Top-down for observing truth vs estimate
-};
+import { CAMERA_PRESETS } from "@/lib/simulation/sceneConstants";
 
 export default function CameraRig() {
     const sceneState = useSimulationStore((state) => state.sceneState);
     const { camera } = useThree();
 
-    // Smooth targets
+    // Smooth target references
     const targetPos = useRef(new Vector3());
     const targetLookAt = useRef(new Vector3());
+    const currentLookAt = useRef(new Vector3(0, 1, 0));
 
     useFrame((state, delta) => {
-        const config = CAMERA_STATES[sceneState] || CAMERA_STATES.takeoff;
+        const config = (CAMERA_PRESETS as any)[sceneState] || CAMERA_PRESETS.takeoff;
 
-        // Lerp position
+        // 1. Smooth Position Interpolation
         targetPos.current.set(...(config.pos as [number, number, number]));
         camera.position.lerp(targetPos.current, 0.05);
 
-        // Lerp lookAt target
+        // 2. Smooth LookAt Interpolation
+        // Instead of instant lookAt, we lerp the point the camera is looking at
         targetLookAt.current.set(...(config.target as [number, number, number]));
+        currentLookAt.current.lerp(targetLookAt.current, 0.05);
+        camera.lookAt(currentLookAt.current);
 
-        // Custom lookAt interpolation
-        // Standard lookAt(target) is instantaneous, so we use a proxy target
-        state.camera.lookAt(targetLookAt.current);
-
-        // Optional: add subtle breathing motion
-        camera.position.y += Math.sin(state.clock.elapsedTime * 0.5) * 0.002;
+        // 3. Subtle Breathing Motion for "Alive" feel
+        camera.position.y += Math.sin(state.clock.elapsedTime * 0.4) * 0.0015;
     });
 
     return null;

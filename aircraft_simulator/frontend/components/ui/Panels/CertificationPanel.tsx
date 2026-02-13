@@ -43,14 +43,14 @@ export default function CertificationPanel() {
             </div>
 
             <div className="space-y-3">
-                {v.errors.map((error, i) => (
+                {v.errors.map((error: string, i: number) => (
                     <div key={i} className="flex gap-2 p-2 bg-rose-500/10 border border-rose-500/20 rounded-lg">
                         <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0 mt-0.5" />
                         <span className="text-[10px] text-rose-200 leading-tight">{error}</span>
                     </div>
                 ))}
 
-                {v.warnings.map((warning, i) => (
+                {v.warnings.map((warning: string, i: number) => (
                     <div key={i} className="flex gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                         <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
                         <span className="text-[10px] text-amber-200 leading-tight">{warning}</span>

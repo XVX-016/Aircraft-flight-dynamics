@@ -1,33 +1,29 @@
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-    return twMerge(clsx(inputs));
-}
-
 interface CardProps {
     children: React.ReactNode;
-    className?: string;
-    title?: string;
+    className?: string; // Allow minimal overrides if absolutely necessary
+    showAccent?: boolean; // Optional top accent line for Feature cards
 }
 
-export function Card({ children, className, title }: CardProps) {
+export function Card({ children, className = '', showAccent = false }: CardProps) {
     return (
-        <div className={cn(
-            "glass border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl relative",
-            "before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/5 before:to-transparent before:pointer-events-none",
-            className
-        )}>
-            {title && (
-                <div className="px-4 py-2.5 border-b border-slate-700/50 bg-slate-900/40 backdrop-blur-sm">
-                    <h3 className="text-[11px] font-bold text-slate-400 font-mono tracking-[0.1em] uppercase">
-                        {title}
-                    </h3>
-                </div>
+        <div className={`
+      group relative
+      aspect-square
+      bg-black
+      border border-white/10
+      p-8
+      flex flex-col justify-between
+      transition-all duration-300
+      hover:border-white/20
+      hover:bg-neutral-950
+      ${className}
+    `}>
+            {/* Optional Top Accent for Feature Cards */}
+            {showAccent && (
+                <div className="h-1 w-12 bg-white/30 mb-6 group-hover:w-20 transition-all duration-300" />
             )}
-            <div className="p-5">
-                {children}
-            </div>
+
+            {children}
         </div>
     );
 }

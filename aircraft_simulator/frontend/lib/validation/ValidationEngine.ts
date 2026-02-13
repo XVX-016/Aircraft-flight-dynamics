@@ -120,7 +120,7 @@ export class ValidationEngine {
                 this.ekf.predict(u0, dt);
 
                 // 3. Measure (GPS)
-                const meas = this.gps.measure(trueState, dt);
+                const meas = this.gps.measure(trueState, dt, t * dt);
                 if (meas) {
                     // Inject Adversarial Noise
                     if (attackGain > 0 && attackVectorZ.length > 0) {

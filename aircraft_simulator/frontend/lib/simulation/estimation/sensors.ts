@@ -70,7 +70,7 @@ export class GPS implements SensorModel {
     // State: [p, v, q, w, bg, ba] (19 dim)
     // H is 3x19. Identity at [0..2].
     static getJacobian(): number[][] {
-        const H = math.zeros([3, 19]) as math.Matrix;
+        const H = math.matrix(math.zeros([3, 19]) as any);
         H.set([0, 0], 1);
         H.set([1, 1], 1);
         H.set([2, 2], 1);
