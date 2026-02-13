@@ -34,9 +34,9 @@ export default function HomepageTakeoff() {
             <group ref={planeRef} rotation={[0, -Math.PI / 2, 0]} position={AIRCRAFT_POSITION}>
                 <primitive
                     object={scene}
-                    scale={AIRCRAFT_SCALE}
-                    rotation={[0, Math.PI, 0]}
+                    scale={2.5}
                     position={[0, 0, 0]}
+                    rotation={[0, Math.PI, 0]}
                 />
             </group>
 

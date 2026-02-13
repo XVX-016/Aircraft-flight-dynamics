@@ -36,7 +36,7 @@ export default function HangarScene() {
             <group ref={planeRef} position={AIRCRAFT_POSITION} rotation={[0, Math.PI / 2, 0]}>
                 <primitive
                     object={scene}
-                    scale={AIRCRAFT_SCALE}
+                    scale={2}
                     rotation={[0, Math.PI, 0]}
                     castShadow
                     receiveShadow
