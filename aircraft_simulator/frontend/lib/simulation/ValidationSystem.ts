@@ -113,28 +113,37 @@ export class ValidationSystem {
         let F_pow = F.clone();
 
         // Build Observability Matrix (n steps)
-        for (let k = 1; k < this.stateDim; k++) {
-            const block = H.mmul(F_pow);
-            O = O.addRowVector(block); // This API might differ in ml-matrix, usually we stack
-            // ml-matrix doesn't have stack, so we might need manual construction if addRowVector isn't right
-            // Re-implementation for safety:
-            F_pow = F_pow.mmul(F);
+        // O = [H; HF; HF^2; ...; HF^(n-1)]
+        // Size: (measDim * stateDim) x stateDim
+        const O_stacked = new Matrix(this.measDim * this.stateDim, this.stateDim);
+
+        // Fill first block (H)
+        for (let r = 0; r < this.measDim; r++) {
+            for (let c = 0; c < this.stateDim; c++) {
+                O_stacked.set(r, c, H.get(r, c));
+            }
         }
 
-        // Manual stacking since ml-matrix is basic
-        const Obs = new Matrix(this.measDim * this.stateDim, this.stateDim);
         let currentF = Matrix.eye(this.stateDim);
-        for (let k = 0; k < this.stateDim; k++) {
+
+        for (let k = 1; k < this.stateDim; k++) {
+            // Update power of F
+            currentF = currentF.mmul(F);
+
+            // Compute HF^k
             const block = H.mmul(currentF);
+
+            // Stack it
+            const startRow = k * this.measDim;
             for (let r = 0; r < this.measDim; r++) {
                 for (let c = 0; c < this.stateDim; c++) {
-                    Obs.set(k * this.measDim + r, c, block.get(r, c));
+                    O_stacked.set(startRow + r, c, block.get(r, c));
                 }
             }
-            currentF = currentF.mmul(F);
         }
 
-        const svd = new SingularValueDecomposition(Obs);
+        // SVD on O_stacked
+        const svd = new SingularValueDecomposition(O_stacked);
         const singularValues = svd.diagonal;
         const V = svd.rightSingularVectors;
 

@@ -20,8 +20,11 @@ export default function ValidationPage() {
 
     useEffect(() => {
         setScene('void');
-        const snap = validationEngine.runSnapshot(simulationEngine);
-        setSnapshot(snap);
+        const load = async () => {
+            const snap = await validationEngine.runSnapshot(simulationEngine);
+            setSnapshot(snap);
+        };
+        load();
     }, [setScene]);
 
     const handleRunAnalysis = async () => {
@@ -33,7 +36,7 @@ export default function ValidationPage() {
         await new Promise(r => setTimeout(r, 100));
 
         try {
-            const result = validationEngine.runMonteCarlo(simulationEngine, 10, attackAlpha);
+            const result = await validationEngine.runMonteCarlo(simulationEngine, 10, attackAlpha);
             setSnapshot(result);
 
             const verdict = result.consistency.nees < result.consistency.bounds.nees95 ? "PASS" : "FAIL";

@@ -1,11 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { Canvas } from "@react-three/fiber";
-import { Suspense } from "react";
+import { Canvas, useThree, useFrame } from "@react-three/fiber";
+import { Suspense, useRef } from "react";
 import { Environment } from "@react-three/drei";
 import HomepageTakeoff from "@/components/3d/scenes/HomepageTakeoff";
 import PerformanceController from "@/components/3d/PerformanceController";
+import * as THREE from "three";
+
+/** Responsive camera that adjusts position based on viewport width */
+function ResponsiveCamera() {
+    const { size, camera } = useThree();
+    const target = useRef(new THREE.Vector3(5, 2, 8));
+    const settled = useRef(false);
+    const lastMobile = useRef<boolean | null>(null);
+
+    useFrame(() => {
+        // Use pixel width for stable detection (viewport units change with camera depth!)
+        const isMobile = size.width < 768;
+
+        if (lastMobile.current !== isMobile) {
+            lastMobile.current = isMobile;
+            settled.current = false; // viewport changed, need to reposition
+            target.current.set(
+                isMobile ? 3 : 5,
+                isMobile ? 4 : 2,
+                isMobile ? 20 : 8
+            );
+        }
+
+        // Once settled, stop all updates to prevent any flickering
+        if (settled.current) return;
+
+        const dist = camera.position.distanceTo(target.current);
+        if (dist > 0.01) {
+            camera.position.lerp(target.current, 0.1); // Faster lerp
+            camera.lookAt(0, 0, 0);
+        } else {
+            camera.position.copy(target.current);
+            camera.lookAt(0, 0, 0);
+            camera.updateProjectionMatrix();
+            settled.current = true;
+        }
+    });
+
+    return null;
+}
 
 const HeroSection = () => {
     return (
@@ -13,7 +53,7 @@ const HeroSection = () => {
             {/* 3D Background - Scoped to Hero */}
             <div className="absolute inset-0">
                 <Canvas
-                    dpr={[1, 2]}
+                    dpr={1}
                     gl={{
                         antialias: true,
                         powerPreference: "high-performance",
@@ -32,7 +72,7 @@ const HeroSection = () => {
                             castShadow
                             shadow-mapSize={[2048, 2048]}
                         />
-                        <PerformanceController />
+                        <ResponsiveCamera />
                         <HomepageTakeoff />
                     </Suspense>
                 </Canvas>
@@ -45,10 +85,10 @@ const HeroSection = () => {
             <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-b from-transparent to-black z-10 pointer-events-none" />
 
             {/* Main Content */}
-            <div className="relative z-20 text-center max-w-[1400px] mx-auto px-8 h-full flex flex-col justify-center">
+            <div className="relative z-20 text-center max-w-[1400px] mx-auto px-6 md:px-8 h-full flex flex-col justify-center">
                 <div className="mb-8 relative">
                     <h1
-                        className="text-[clamp(4rem,15vw,12rem)] font-black leading-[0.8] tracking-tighter text-white opacity-0 animate-fade-in-up"
+                        className="text-[clamp(3rem,12vw,12rem)] md:text-[clamp(4rem,15vw,12rem)] font-black leading-[0.8] tracking-tighter text-white opacity-0 animate-fade-in-up"
                         style={{ animationDelay: '0.4s', animationFillMode: 'forwards' }}
                     >
                         Precision
@@ -57,7 +97,7 @@ const HeroSection = () => {
                     </h1>
 
                     <h2
-                        className="text-[clamp(2rem,6vw,5rem)] font-bold tracking-tight mt-2 opacity-0 animate-fade-in-up text-stroke"
+                        className="text-[clamp(1.5rem,5vw,5rem)] md:text-[clamp(2rem,6vw,5rem)] font-bold tracking-tight mt-2 opacity-0 animate-fade-in-up text-stroke"
                         style={{
                             animationDelay: '0.6s',
                             animationFillMode: 'forwards',
@@ -75,11 +115,11 @@ const HeroSection = () => {
                     Advanced attitude determination and control simulation platform
                 </p>
 
-                {/* CTA Button */}
+                {/* CTA Button — wider on mobile for thumb accessibility */}
                 <div className="flex flex-col items-center gap-12 opacity-0 animate-scale-in" style={{ animationDelay: '1s', animationFillMode: 'forwards' }}>
                     <Link
                         href="/flight-lab"
-                        className="px-12 py-4 border border-white/20 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all duration-300 text-xs font-mono tracking-[0.3em] uppercase"
+                        className="w-full sm:w-auto px-8 sm:px-12 py-4 border border-white/20 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all duration-300 text-xs font-mono tracking-[0.3em] uppercase text-center"
                     >
                         Launch Pilot Deck
                     </Link>
@@ -90,3 +130,4 @@ const HeroSection = () => {
 };
 
 export default HeroSection;
+

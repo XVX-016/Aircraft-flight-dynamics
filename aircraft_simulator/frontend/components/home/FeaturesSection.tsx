@@ -14,10 +14,6 @@ export default function FeaturesSection() {
                         {/* Top Technical Labels */}
                         <div className="flex items-center justify-between text-[10px] font-mono tracking-[0.2em] text-white/40">
                             <span>6-DOF</span>
-                            <span className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-500/80 animate-pulse" />
-                                <span className="text-green-400/70">ACTIVE</span>
-                            </span>
                         </div>
 
                         {/* Center Visual — Wireframe Cube */}
@@ -46,10 +42,6 @@ export default function FeaturesSection() {
                         {/* Top Technical Labels */}
                         <div className="flex items-center justify-between text-[10px] font-mono tracking-[0.2em] text-white/40">
                             <span>PID / LQR</span>
-                            <span className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500/80" />
-                                <span className="text-amber-400/70">STANDBY</span>
-                            </span>
                         </div>
 
                         {/* Center Visual — Block Diagram */}
@@ -92,10 +84,6 @@ export default function FeaturesSection() {
                         {/* Top Technical Labels */}
                         <div className="flex items-center justify-between text-[10px] font-mono tracking-[0.2em] text-white/40">
                             <span>EKF / UKF</span>
-                            <span className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500/80 animate-pulse" />
-                                <span className="text-cyan-400/70">TRACKING</span>
-                            </span>
                         </div>
 
                         {/* Center Visual — Covariance Matrix Grid */}

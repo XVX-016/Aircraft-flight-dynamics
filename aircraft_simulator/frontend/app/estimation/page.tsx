@@ -38,13 +38,17 @@ export default function EstimationValidationLab() {
         return speed / 340.29; // Speed of sound at sea level approx
     };
 
+    const simTimeRef = useRef(0);
+
     const step = useCallback((dt: number) => {
         simulationEngine.update(dt);
         const truth = simulationEngine.getRenderState(0);
 
         ekf.predict(simulationEngine.getControls(), dt);
 
-        let meas = gps.measure(truth, dt, simTime + dt);
+        // Use ref for calculation
+        const currentTime = simTimeRef.current;
+        let meas = gps.measure(truth, dt, currentTime + dt);
         let innov = [0, 0, 0];
 
         const F = validator.computeSystemMatrix(truth, dt);
@@ -70,7 +74,7 @@ export default function EstimationValidationLab() {
         const P_array = est.P;
         const P_matrix = new Matrix(P_array);
 
-        const H_mat = new Matrix(3, 9);
+        const H_mat = new Matrix(3, 19);
         H_mat.set(0, 0, 1); H_mat.set(1, 1, 1); H_mat.set(2, 2, 1);
 
         const R_mat = Matrix.eye(3).mul(100);
@@ -88,7 +92,9 @@ export default function EstimationValidationLab() {
         const obsSnapshot = validator.analyzeObservability(F, H_val);
         setObsResult(obsSnapshot);
 
-        setSimTime(t => t + dt);
+        // Update Ref and State
+        simTimeRef.current += dt;
+        setSimTime(simTimeRef.current);
 
         setEstimationData({
             estimatedState: {
@@ -100,7 +106,7 @@ export default function EstimationValidationLab() {
 
         setHistory(prev => {
             const nw = [...prev, {
-                time: (simTime + dt).toFixed(1),
+                time: (simTimeRef.current).toFixed(1),
                 nees: metricSnapshot.nees,
                 nis: metricSnapshot.nis,
                 nees_upper: metricSnapshot.neesBounds[1],
@@ -109,7 +115,7 @@ export default function EstimationValidationLab() {
             return nw;
         });
 
-    }, [simTime, setEstimationData]);
+    }, [setEstimationData]);
 
     useEffect(() => {
         setScene('estimation');
@@ -184,7 +190,7 @@ export default function EstimationValidationLab() {
                             <button onClick={() => step(0.05)} title="Step Forward" className="p-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all">
                                 <ChevronRight className="w-4 h-4 text-white/60" />
                             </button>
-                            <button onClick={() => setSimTime(0)} title="Reset" className="p-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all">
+                            <button onClick={() => { setSimTime(0); simTimeRef.current = 0; }} title="Reset" className="p-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all">
                                 <RotateCcw className="w-4 h-4 text-white/20" />
                             </button>
                         </div>

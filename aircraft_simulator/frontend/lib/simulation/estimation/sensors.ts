@@ -1,8 +1,10 @@
 import { SensorModel, Measurement, SensorConfig } from "../types/sensors";
 import { TruthState } from "../types/state";
-import { Vec3 } from "../physics/math-utils";
+import { Vec3 } from "../utils";
 import * as math from "mathjs";
-import { faultInjector } from "../faults";
+import { faultInjector } from "../faults"; // Resolves to index.ts if faults.ts is gone
+// But to be safe and explicit during transition:
+// import { faultInjector } from "../faults/FaultInjector";
 
 // Utils
 function gaussianRandom(mean = 0, stdev = 1) {
@@ -45,9 +47,12 @@ export class GPS implements SensorModel {
         ];
 
         // Apply Faults
-        const corruptedZ = faultInjector.apply('gps_pos', rawZ, simTime);
-        // Wait, 'dt' is passed, but not 'time'. 
-        // We should update 'measure' (and SensorModel) to take 'time' or we rely on 'dt' accumulation?
+        // Apply Faults
+        const result = faultInjector.injectGPSPositionFaults(rawZ as [number, number, number], simTime, dt);
+
+        if (result.isDropout) return null;
+
+        const corruptedZ = result.value as number[];
         // GPS has 'lastUpdateTime'.
         // Let's use performance.now() / 1000 or similar if we are real-time, 
         // BUT SimulationEngine should pass simTime. 
@@ -91,42 +96,6 @@ export class IMU implements SensorModel {
     measure(truth: TruthState, dt: number, simTime: number): Measurement | null {
         this.lastUpdateTime = simTime; // Track time for internal state if needed
         // IMU measures: [ax, ay, az, wx, wy, wz]
-        // Accel: Gravity + Body Accel + Bias + Noise
-        // Gyro: Body Rates + Bias + Noise
-
-        // Gravity in Body Frame
-        // g_body = q' * [0,0,g] * q
-        const g_inertial = { x: 0, y: 0, z: 9.81 };
-        const g_body = Vec3.transformInertialToBody(g_inertial, truth.q);
-
-        // Body Accel (Truth force / mass?)
-        // truth.forces is already in body frame
-        // a_body = F_total / m? 
-        // Note: Accelerometers measure Specific Force (F_aero + F_prop) / m. They DO NOT measure Gravity.
-        // Gravity IS felt as 1G upwards when stationary.
-        // Mathematically: Meas = a_kinematic - g_body
-        // Or simpler: Meas = F_contact_forces / m
-        // truth.forces includes Gravity? In dynamics.ts we added gravity.
-        // So truth.forces = F_aero + F_prop + F_gravity.
-        // Specific Force = (F_total - F_gravity) / m = (F_aero + F_prop) / m.
-
-        // Wait, dynamics.ts computed F_total.
-        // Let's assume we can approximate "Specific Force" roughly or need to store it.
-        // For Tier 1 visualization rigour: 
-        // Accel = (v_new - v_old)/dt - g_body ?
-        // Let's just use truth.forces (total) and remove gravity component if we can.
-        // Or simplified: Accel = v_dot + w x v ? (Kinematic accel at CG)
-        // IMU measures (v_dot + w x v - g_body).
-
-        // Let's use simple approximation for now: a = F_total_body / mass ? 
-        // Wait, F_total includes gravity. 
-        // IMU reads (F_total - F_gravity)/m = (F_aero + Thrust)/m.
-        // This is a classic "Gotcha".
-
-        // Let's fake it perfectly for now:
-        // Ideal Accel = (Truth V - Prev V)/dt.
-        // Meas Accel = Ideal Accel - g_body.
-
         // Actually, let's just assume we measure truth.w directly.
 
         const noiseGyro = this.config.noiseSigma;
@@ -142,26 +111,30 @@ export class IMU implements SensorModel {
         // a (Fake 1G down if stationary, else kinematic)
         // Simplified: just gravity for specific force if stationary?
         // Let's rely on g_body for the dominant term.
+
+        // Gravity in Body Frame
+        // g_body = q' * [0,0,g] * q
+        const g_inertial = { x: 0, y: 0, z: 9.81 };
+        const g_body = Vec3.transformInertialToBody(g_inertial, truth.q);
         const a_meas = {
             x: -g_body.x + gaussianRandom(0, noiseAccel) + truth.b_a.x, // -g reaction
             y: -g_body.y + gaussianRandom(0, noiseAccel) + truth.b_a.y,
             z: -g_body.z + gaussianRandom(0, noiseAccel) + truth.b_a.z
         };
 
-        // Apply Faults
-        // IMU is one measurement vector z[6], but we split control/faults often by Accel vs Gyro logic.
-        // Our FaultControlPanel splits them: 'imu_accel', 'imu_gyro'.
-        // So we apply separately and merge.
-
-        // Sim time is now passed explicitly
-
         const rawAccel = [a_meas.x, a_meas.y, a_meas.z];
         const rawGyro = [w_meas.x, w_meas.y, w_meas.z];
 
-        const corAccel = faultInjector.apply('imu_accel', rawAccel, simTime);
-        const corGyro = faultInjector.apply('imu_gyro', rawGyro, simTime);
+        // Apply Faults
+        const resultAccel = faultInjector.injectAccelFaults(rawAccel as [number, number, number], simTime, dt);
+        const resultGyro = faultInjector.injectGyroFaults(rawGyro as [number, number, number], simTime, dt);
 
-        if (!corAccel || !corGyro) return null; // Dropout
+        if (resultAccel.isDropout || resultGyro.isDropout) return null; // Dropout
+
+        // Use the corrupted values or frozen/bias values
+        // The new FaultInjectionResult returns 'value' as number[] or number
+        const corAccel = resultAccel.value as number[];
+        const corGyro = resultGyro.value as number[];
 
         return {
             z: [...corAccel, ...corGyro],

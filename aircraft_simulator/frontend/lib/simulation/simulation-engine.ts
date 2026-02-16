@@ -1,65 +1,53 @@
 import { AircraftConfig } from "./types/aircraft";
-import { TruthState, EKFState, Vector3, Quaternion } from "./types/state";
+import { TruthState, Vector3, Quaternion } from "./types/state";
+import { Quat } from "./utils";
 import { ControlInput } from "./types/control";
-import { RigidBody } from "./physics/dynamics";
-import { Vec3, Quat } from "./physics/math-utils";
-import defaultAircraft from "./data/default_aircraft.json";
-
-// Types
-type AircraftConfigType = AircraftConfig;
+import { SimulationEngine as CoreEngine } from "@/core/engine";
+import { TrimSolver, TrimResult } from "@/core/analysis/trim";
+import { Linearization } from "@/core/analysis/linearization";
+import { CESSNA_172R } from "@/core/aircraft/database/cessna172";
+import { AutopilotMode } from "@/core/control/autopilot";
 
 // Constants
 const PHYSICS_DT = 0.01; // 100 Hz
-const SNAPSHOT_BUFFER_SIZE = 4; // Minimal buffer for interpolation
+const SNAPSHOT_BUFFER_SIZE = 4;
 
 export class SimulationEngine {
-    private rigidBody: RigidBody;
-    private config: AircraftConfigType;
+    private engine: CoreEngine;
+    private stateBuffer: Array<{ time: number; state: TruthState }> = [];
 
-    // Simulation State
-    private currentState: TruthState;
-    private currentTime: number = 0;
+    // Analysis tools
+    private trimSolver: TrimSolver;
+    private linearization: Linearization;
 
-    // Inputs
+    constructor() {
+        this.engine = new CoreEngine(CESSNA_172R);
+        this.trimSolver = new TrimSolver(CESSNA_172R);
+        this.linearization = new Linearization(CESSNA_172R);
+
+        const initialState = this.mapCoreStateToTruthState(this.engine.getState());
+        this.pushStateToBuffer(0, initialState);
+    }
+
+    public update(dt: number) {
+        // The core engine step takes controls. We need to store current controls.
+        // But CoreEngine.step(dt, controls) is stateless regarding input storage?
+        // Let's assume we pass the last known controls.
+        // We need to store controls here then.
+        this.engine.step(dt, this.currentControls);
+
+        const coreState = this.engine.getState();
+        const truthState = this.mapCoreStateToTruthState(coreState);
+
+        this.pushStateToBuffer(coreState.time, truthState);
+    }
+
     private currentControls: ControlInput = {
-        throttle: 0,
+        throttle: 0.5,
         elevator: 0,
         aileron: 0,
         rudder: 0
     };
-
-    // State Buffer for Interpolation
-    private stateBuffer: Array<{ time: number; state: TruthState }> = [];
-
-    constructor(config?: AircraftConfigType) {
-        this.config = config || (defaultAircraft as unknown as AircraftConfigType);
-        this.rigidBody = new RigidBody(this.config);
-        this.currentState = this.getInitialState();
-        this.pushStateToBuffer(0, this.currentState);
-    }
-
-    public getInitialState(): TruthState {
-        // Initial trim condition approx
-        return {
-            p: { x: 0, y: 0, z: -1000 }, // 1000m altitude
-            v: { x: 100, y: 0, z: 0 },   // 100 m/s
-            q: { x: 0, y: 0, z: 0, w: 1 },
-            w: { x: 0, y: 0, z: 0 },
-            b_g: { x: 0, y: 0, z: 0 },
-            b_a: { x: 0, y: 0, z: 0 },
-            forces: { x: 0, y: 0, z: 0 },
-            moments: { x: 0, y: 0, z: 0 },
-            alpha: 0,
-            beta: 0
-        };
-    }
-
-    private pushStateToBuffer(time: number, state: TruthState) {
-        this.stateBuffer.push({ time, state: { ...state } }); // Deep copyish
-        if (this.stateBuffer.length > SNAPSHOT_BUFFER_SIZE) {
-            this.stateBuffer.shift();
-        }
-    }
 
     public setControls(controls: Partial<ControlInput>) {
         this.currentControls = { ...this.currentControls, ...controls };
@@ -69,81 +57,125 @@ export class SimulationEngine {
         return { ...this.currentControls };
     }
 
-    public update(dt: number) {
-        // Accumulator logic usually handled outside or here. 
-        // For simplicity allow fixed stepping called from outside loop or internal management.
-        // Implemented as single step for now, caller handles accumulation.
-
-        const nextState = this.rigidBody.step(this.currentState, this.currentControls, PHYSICS_DT);
-        this.currentTime += PHYSICS_DT;
-        this.currentState = nextState;
-
-        this.pushStateToBuffer(this.currentTime, nextState);
+    public setAutopilotMode(mode: AutopilotMode) {
+        this.engine.getAutopilot().mode = mode;
     }
 
-    /**
-     * Get interpolated state for rendering time
-     * @param renderTime System time to render at (controlled by main loop)
-     */
+    public setAutopilotTargets(targets: { altitude?: number, heading?: number, speed?: number }) {
+        const ap = this.engine.getAutopilot();
+        if (targets.altitude !== undefined) ap.targetAltitude = targets.altitude;
+        if (targets.heading !== undefined) ap.targetHeading = targets.heading;
+        if (targets.speed !== undefined) ap.targetSpeed = targets.speed;
+    }
+
+    public getAutopilotState() {
+        return this.engine.getAutopilot();
+    }
+
     public getRenderState(renderTime: number): TruthState {
-        // Find surrounding snapshots
-        // Assuming renderTime is lagging slightly behind real time for interpolation
-        // Strategy: Render at currentTime - interpolationDelay
-        // Simple strategy: Just lerp between last two frames if we don't have strict synch
-
-        if (this.stateBuffer.length < 2) return this.currentState;
-
-        const entryA = this.stateBuffer[this.stateBuffer.length - 2];
-        const entryB = this.stateBuffer[this.stateBuffer.length - 1];
-
-        // Alpha calculation could be more complex with proper time sync
-        // For now, return latest for responsiveness or simple lerp
-        // Let's implement simple Lerp between last 2 physics steps 
-        // This assumes `update` is called consistently
-        return entryB.state; // Temporary: Return latest to verify physics moves first
+        // Simple latest state for now
+        if (this.stateBuffer.length === 0) return this.mapCoreStateToTruthState(this.engine.getState());
+        return this.stateBuffer[this.stateBuffer.length - 1].state;
     }
 
-    // Explicit Interpolation helper
-    public interpolate(alpha: number): TruthState {
-        if (this.stateBuffer.length < 2) return this.currentState;
+    // --- Analysis Methods ---
 
-        const prev = this.stateBuffer[this.stateBuffer.length - 2].state;
-        const curr = this.stateBuffer[this.stateBuffer.length - 1].state;
+    public async calculateTrim(): Promise<TrimResult> {
+        return this.trimSolver.solve(60, 1000);
+    }
 
-        // Lerp Position
-        const p: Vector3 = {
-            x: prev.p.x + (curr.p.x - prev.p.x) * alpha,
-            y: prev.p.y + (curr.p.y - prev.p.y) * alpha,
-            z: prev.p.z + (curr.p.z - prev.p.z) * alpha
+    public async computeLinearization() {
+        // Compute Jacobian around current state or trim state?
+        // Usually trim.
+        const trim = this.trimSolver.solve(60, 1000);
+
+        // Convert trim result back to full state vector
+        // This logic is duplicated in TrimSolver.evaluateResiduals...
+        // We should probably expose "createStateFromTrim" in TrimSolver or similar.
+        // For now, let's just use the current state if converged?
+        // Actually, Linearization.computeJacobian takes state array.
+        // We need to reconstruct it.
+
+        const alpha = trim.alpha;
+        const V = 60;
+        const u = V * Math.cos(alpha);
+        const w = V * Math.sin(alpha);
+        const theta = alpha;
+
+        const state = [
+            u, 0, w,
+            0, 0, 0,
+            0, theta, 0,
+            0, 0, -1000
+        ];
+
+        const controls = {
+            throttle: trim.throttle,
+            elevator: trim.elevator,
+            aileron: 0,
+            rudder: 0
         };
 
-        // Slerp Quaternion (Linear approximation for small steps is mostly fine, but let's do Slerp if we can, or just normalize lerp)
-        const q: Quaternion = {
-            x: prev.q.x + (curr.q.x - prev.q.x) * alpha,
-            y: prev.q.y + (curr.q.y - prev.q.y) * alpha,
-            z: prev.q.z + (curr.q.z - prev.q.z) * alpha,
-            w: prev.q.w + (curr.q.w - prev.q.w) * alpha
-        };
-        // Re-normalize
-        const qMag = Math.sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
-        q.x /= qMag; q.y /= qMag; q.z /= qMag; q.w /= qMag;
+        const A = this.linearization.computeJacobian(state, controls);
+        return { A, trim };
+    }
 
+    // --- Helpers ---
+
+    private mapCoreStateToTruthState(coreState: any): TruthState {
         return {
-            ...curr,
-            p,
-            q
+            p: { x: coreState.position.x, y: coreState.position.y, z: coreState.position.z },
+            v: { x: coreState.velocity.u, y: coreState.velocity.v, z: coreState.velocity.w },
+            q: Quat.fromEuler(coreState.attitude.phi, coreState.attitude.theta, coreState.attitude.psi),
+            w: { x: coreState.rates.p, y: coreState.rates.q, z: coreState.rates.r },
+            b_g: { x: 0, y: 0, z: 0 },
+            b_a: { x: 0, y: 0, z: 0 },
+            forces: { x: 0, y: 0, z: 0 },
+            moments: { x: 0, y: 0, z: 0 },
+            alpha: coreState.aero?.alpha || 0,
+            beta: coreState.aero?.beta || 0
         };
     }
+
+    private pushStateToBuffer(time: number, state: TruthState) {
+        this.stateBuffer.push({ time, state });
+        if (this.stateBuffer.length > SNAPSHOT_BUFFER_SIZE) {
+            this.stateBuffer.shift();
+        }
+    }
+
+    // --- Validation Support ---
 
     /**
-     * Deterministic Prediction Step (Stateless)
-     * Used by ValidationSystem for Numerical Jacobians
+     * Pure deterministic prediction for Jacobian computation
      */
     public predictDeterminstic(state: TruthState, dt: number): TruthState {
-        // Use current controls as constant for the step
-        return this.rigidBody.step(state, this.currentControls, dt);
+        // 1. Reconstruct Core State Vector [u,v,w, p,q,r, phi,theta,psi, x,y,z] from TruthState
+        const euler = Quat.toEuler(state.q);
+
+        const s = [
+            state.v.x, state.v.y, state.v.z,
+            state.w.x, state.w.y, state.w.z,
+            euler.x, euler.y, euler.z,
+            state.p.x, state.p.y, state.p.z
+        ];
+
+        // 2. Predict using Core Engine
+        const nextStateVec = this.engine.predict(s, this.currentControls, dt);
+
+        // 3. Map back (simplified)
+        return {
+            ...state, // Persist other props
+            p: { x: nextStateVec[9], y: nextStateVec[10], z: nextStateVec[11] },
+            v: { x: nextStateVec[0], y: nextStateVec[1], z: nextStateVec[2] },
+            w: { x: nextStateVec[3], y: nextStateVec[4], z: nextStateVec[5] },
+            q: Quat.fromEuler(nextStateVec[6], nextStateVec[7], nextStateVec[8])
+        };
+    }
+    public getInitialState(): TruthState {
+        // Return initial state (t=0)
+        return this.mapCoreStateToTruthState(this.engine.getState()); // Should use initial state config if available
     }
 }
 
-// Singleton Instance
 export const simulationEngine = new SimulationEngine();

@@ -2,7 +2,7 @@ import { EKF, EKFEstimate } from "../types/ekf";
 import { EKFState, Vector3, Quaternion } from "../types/state";
 import { ControlInput } from "../types/control";
 import { Measurement } from "../types/sensors";
-import { Vec3, Quat } from "../physics/math-utils";
+import { Vec3, Quat } from "../utils";
 import * as math from "mathjs";
 
 // State Dimension: 15
@@ -148,15 +148,29 @@ export class ExtendedKalmanFilter implements EKF {
 
     // --- Helpers ---
 
-    private vectorToState(v: math.Matrix): EKFState {
-        const data = (v.toArray() as any).flat() as number[];
+    private vectorToState(v: math.Matrix | number[] | any): EKFState {
+        let data: number[] = [];
+
+        if (v && typeof v.toArray === 'function') {
+            data = (v.toArray() as any).flat();
+        } else if (Array.isArray(v)) {
+            data = v.flat(Infinity) as number[];
+        } else if (v && v.data && Array.isArray(v.data)) {
+            // Handle raw matrix data object
+            data = v.data.flat(Infinity);
+        } else {
+            console.error("vectorToState received invalid input:", v);
+            // Return zero state to prevent crash
+            data = new Array(STATE_DIM).fill(0);
+        }
+
         return {
-            p: { x: data[0], y: data[1], z: data[2] },
-            v: { x: data[3], y: data[4], z: data[5] },
-            q: { x: data[6], y: data[7], z: data[8], w: data[9] },
-            w: { x: data[10], y: data[11], z: data[12] },
-            b_g: { x: data[13], y: data[14], z: data[15] },
-            b_a: { x: data[16], y: data[17], z: data[18] }
+            p: { x: data[0] || 0, y: data[1] || 0, z: data[2] || 0 },
+            v: { x: data[3] || 0, y: data[4] || 0, z: data[5] || 0 },
+            q: { x: data[6] || 0, y: data[7] || 0, z: data[8] || 0, w: data[9] || 1 },
+            w: { x: data[10] || 0, y: data[11] || 0, z: data[12] || 0 },
+            b_g: { x: data[13] || 0, y: data[14] || 0, z: data[15] || 0 },
+            b_a: { x: data[16] || 0, y: data[17] || 0, z: data[18] || 0 }
         };
     }
 

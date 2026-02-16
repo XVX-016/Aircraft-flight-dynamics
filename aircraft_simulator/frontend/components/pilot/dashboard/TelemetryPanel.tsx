@@ -5,7 +5,7 @@ import { useSim } from '@/lib/providers/SimProvider';
 
 export default function TelemetryPanel() {
     const [activeTab, setActiveTab] = useState<'flight' | 'inputs' | 'ekf'>('flight');
-    const { derived, truthState } = useSim();
+    const { derived, truthState, estimate } = useSim();
 
     // Safe defaults if state not yet available
     const altitude = derived?.altitude ?? 0;
@@ -69,14 +69,19 @@ export default function TelemetryPanel() {
                             <span className="text-emerald-400/80">CONVERGED</span>
                         </div>
                         <div className="flex justify-between items-center bg-white/[0.02] p-3 rounded-lg border border-white/5">
-                            <span className="text-white/30">MODE</span>
-                            <span className="text-white/80">EKF-19-STATE</span>
+                            <span className="text-white/30">ESTIMATE COVARIANCE</span>
+                            {/* Display Trace of P as a simple metric */}
+                            <span className="text-white/80">
+                                {estimate ? (
+                                    (estimate.covariance[0][0] + estimate.covariance[1][1] + estimate.covariance[2][2]).toExponential(2)
+                                ) : "INIT"}
+                            </span>
                         </div>
                         <div className="mt-6">
-                            <p className="text-white/20 mb-3 text-[9px]">RESIDUALS SPECTRUM</p>
+                            <p className="text-white/20 mb-3 text-[9px]">DIAGONAL COVARIANCE (Pos/Vel)</p>
                             <div className="flex gap-1.5 h-10 items-end px-1">
-                                {[0.2, 0.5, 0.3, 0.8, 0.4, 0.1, 0.6, 0.2].map((h, i) => (
-                                    <div key={i} className="flex-1 bg-emerald-500/30 rounded-t-sm" style={{ height: `${h * 100}%` }} />
+                                {estimate?.covariance.slice(0, 6).map((row, i) => (
+                                    <div key={i} className="flex-1 bg-emerald-500/30 rounded-t-sm" style={{ height: `${Math.min(100, Math.sqrt(row[i]) * 50)}%` }} />
                                 ))}
                             </div>
                         </div>

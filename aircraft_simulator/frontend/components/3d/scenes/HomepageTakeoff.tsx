@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import { Group } from "three";
 import { AIRCRAFT_SCALE, AIRCRAFT_POSITION } from "@/lib/simulation/sceneConstants";
@@ -10,6 +10,11 @@ import AirflowParticles from "../airflow/AirflowParticles";
 export default function HomepageTakeoff() {
     const planeRef = useRef<Group>(null);
     const { scene } = useGLTF("/models/fighterplane/scene.gltf");
+    const { size } = useThree();
+
+    // Responsive scale: shrink model on narrow viewports (using pixel width)
+    const isMobile = size.width < 768;
+    const modelScale = isMobile ? 1.5 : 2.5;
 
     useFrame((state, delta) => {
         if (planeRef.current) {
@@ -34,7 +39,7 @@ export default function HomepageTakeoff() {
             <group ref={planeRef} rotation={[0, -Math.PI / 2, 0]} position={AIRCRAFT_POSITION}>
                 <primitive
                     object={scene}
-                    scale={2.5}
+                    scale={modelScale}
                     position={[0, 0, 0]}
                     rotation={[0, Math.PI, 0]}
                 />
