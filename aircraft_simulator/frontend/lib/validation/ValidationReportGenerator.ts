@@ -1,7 +1,7 @@
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { ValidationSnapshot } from "../simulation/ValidationSystem";
+import { ValidationSnapshot } from "./ValidationEngine";
 
 export class ValidationReportGenerator {
 
@@ -74,7 +74,7 @@ export class ValidationReportGenerator {
         });
 
         // --- 4. Consistency ---
-        const finalY = (doc as any).lastAutoTable.finalY + 20;
+        const finalY = (((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY) ?? 180) + 20;
         doc.setFontSize(14);
         doc.text("4. Consistency & Failure Analysis", 14, finalY);
 

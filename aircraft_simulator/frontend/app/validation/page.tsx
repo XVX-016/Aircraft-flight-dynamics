@@ -64,7 +64,7 @@ export default function ValidationPage() {
 
     if (!snapshot) return <div className="p-12 text-center font-mono text-white/50">Initializing Validation Engine...</div>;
 
-    const { trimId, F, consistency, observability } = snapshot;
+    const { trimId, F, consistency, observability, covariance } = snapshot;
 
     return (
         <AppContainer className="pb-24">
@@ -187,9 +187,9 @@ export default function ValidationPage() {
                         <AircraftModel />
                         <group position={[0, 0, 0]}>
                             <CovarianceEllipsoid
-                                eigenVectors={[[1, 0, 0], [0, 1, 0], [0, 0, 1]]}
-                                eigenValues={[2, 1, 0.5]}
-                                weakestDirection={[0, 0, 1]}
+                                eigenVectors={covariance.eigenVectors}
+                                eigenValues={covariance.eigenValues}
+                                weakestDirection={observability.weakestDirection}
                                 nees={consistency.nees}
                                 neesBound={consistency.bounds.nees95}
                             />

@@ -62,6 +62,8 @@ interface SimProviderProps {
 
 export function SimProvider({ children }: SimProviderProps) {
     const engineRef = useRef<SimulationEngine>(simulationEngine);
+    const accumulatorRef = useRef(0);
+    const lastTimeRef = useRef<number | null>(null);
     const [isRunning, setIsRunning] = useState(true);
     const [truthState, setTruthState] = useState<TruthState | null>(null);
     const [derived, setDerived] = useState<DerivedPhysics | null>(null);
@@ -72,32 +74,32 @@ export function SimProvider({ children }: SimProviderProps) {
     // --- Simulation Loop ---
     useEffect(() => {
         let animationFrameId: number;
-        let lastTime = performance.now();
+        lastTimeRef.current = null;
+        accumulatorRef.current = 0;
+        const fixedDt = 0.01;
+        const maxSubsteps = 8;
 
         const loop = (now: number) => {
             if (isRunning) {
-                const dt = (now - lastTime) / 1000;
-                lastTime = now;
+                if (lastTimeRef.current === null) lastTimeRef.current = now;
+                const dt = Math.max(0, Math.min((now - lastTimeRef.current) / 1000, 0.1));
+                lastTimeRef.current = now;
+                accumulatorRef.current += dt;
 
-                // Accumulator for fixed timestep
-                let accumulatedTime = dt;
-                const fixedDt = 0.01; // 100Hz physics
-
-                while (accumulatedTime >= fixedDt) {
+                let substeps = 0;
+                while (accumulatorRef.current >= fixedDt && substeps < maxSubsteps) {
                     engineRef.current.update(fixedDt);
-                    accumulatedTime -= fixedDt;
+                    accumulatorRef.current -= fixedDt;
+                    substeps++;
                 }
 
                 // Get latest state snapshot
                 const state = engineRef.current.getRenderState(now);
-                const fullState = engineRef.current['engine'].getState(); // Direct access hack for consistency or expose properly
-                // Actually simulationEngine.getState() on core returns { estimate }
-                // But wrapper .getRenderState returns TruthState.
-                // We need to expose getCoreState in wrapper.
+                const fullState = engineRef.current.getCoreState();
 
                 setTruthState(state);
                 setDerived(derivePhysics(state));
-                setEstimate(fullState.estimate);
+                setEstimate(fullState.estimate ?? null);
                 setTime(fullState.time);
 
                 // Sync Autopilot Mode UI
@@ -118,14 +120,22 @@ export function SimProvider({ children }: SimProviderProps) {
     const step = () => {
         engineRef.current.update(0.01);
         const state = engineRef.current.getRenderState(performance.now());
-        const fullState = engineRef.current['engine'].getState();
+        const fullState = engineRef.current.getCoreState();
         setTruthState(state);
         setDerived(derivePhysics(state));
-        setEstimate(fullState.estimate);
+        setEstimate(fullState.estimate ?? null);
         setTime(fullState.time);
     };
     const reset = () => {
-        console.warn("SimProvider.reset() - Not yet implemented");
+        engineRef.current.reset();
+        const state = engineRef.current.getRenderState(performance.now());
+        const fullState = engineRef.current.getCoreState();
+        setTruthState(state);
+        setDerived(derivePhysics(state));
+        setEstimate(fullState.estimate ?? null);
+        setTime(fullState.time);
+        accumulatorRef.current = 0;
+        lastTimeRef.current = null;
     };
     const setControls = (controls: Partial<ControlInput>) => {
         engineRef.current.setControls(controls);

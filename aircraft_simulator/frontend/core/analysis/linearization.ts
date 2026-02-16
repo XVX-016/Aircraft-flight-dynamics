@@ -33,6 +33,51 @@ export class Linearization {
         return A;
     }
 
+    public computeStateInputJacobians(
+        trimState: number[],
+        trimControls: ControlInputs
+    ): { A: number[][]; B: number[][] } {
+        const n = 12;
+        const m = 4; // throttle, aileron, elevator, rudder
+        const A: number[][] = Array(n).fill(0).map(() => Array(n).fill(0));
+        const B: number[][] = Array(n).fill(0).map(() => Array(m).fill(0));
+        const epsX = 1e-4;
+        const epsU = 1e-4;
+
+        const f0 = this.getDerivatives(trimState, trimControls);
+
+        for (let i = 0; i < n; i++) {
+            const xPert = [...trimState];
+            xPert[i] += epsX;
+            const f = this.getDerivatives(xPert, trimControls);
+            for (let j = 0; j < n; j++) {
+                A[j][i] = (f[j] - f0[j]) / epsX;
+            }
+        }
+
+        const u0 = [
+            trimControls.throttle,
+            trimControls.aileron,
+            trimControls.elevator,
+            trimControls.rudder
+        ];
+        for (let i = 0; i < m; i++) {
+            const up = [...u0];
+            up[i] += epsU;
+            const f = this.getDerivatives(trimState, {
+                throttle: up[0],
+                aileron: up[1],
+                elevator: up[2],
+                rudder: up[3]
+            });
+            for (let j = 0; j < n; j++) {
+                B[j][i] = (f[j] - f0[j]) / epsU;
+            }
+        }
+
+        return { A, B };
+    }
+
     private getDerivatives(state: number[], controls: ControlInputs): number[] {
         const { F, M } = this.aero.calculateForcesAndMoments(state, controls);
         return this.rigidBody.equationsOfMotion(0, state, {

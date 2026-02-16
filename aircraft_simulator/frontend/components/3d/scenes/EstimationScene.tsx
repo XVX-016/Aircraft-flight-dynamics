@@ -43,7 +43,7 @@ export default function EstimationScene({
 
     // Prefer Store data (Bridge from Validation Lab), fallback to Props, then Defaults
     const estPos = estimationData.estState?.position ?? estimatedPosition;
-    // const estRot = estimationData.estState?.rotation ?? estimatedOrientation; // Not used yet for ghost orientation if not passed?
+    const estRot = estimationData.estState?.rotation ?? estimatedOrientation;
 
     // Covariance Slicing: Ensure we have 3x3 for Position
     // If 9x9 (P), take top-left 3x3. 
@@ -85,7 +85,7 @@ export default function EstimationScene({
             {showGhost && (
                 <EstimateGhost
                     estimatedPosition={estPos}
-                    estimatedOrientation={estimatedOrientation} // TODO: Add orientation to store bridge
+                    estimatedOrientation={estRot}
                     truthPosition={truthPos}
                     showSeparationLine={true}
                 />

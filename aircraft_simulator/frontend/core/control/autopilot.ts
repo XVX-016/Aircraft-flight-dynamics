@@ -22,11 +22,29 @@ export class Autopilot {
     private lqr = new LQR();
     private linearization = new Linearization(CESSNA_172R);
     private refState: number[] | null = null;
+    private trimControls: ControlInput = { throttle: 0.5, elevator: 0, aileron: 0, rudder: 0 };
 
     // Targets
     public targetAltitude: number = 1000;
     public targetHeading: number = 0;
     public targetSpeed: number = 60;
+
+    private ensureLqrGain(currentState: number[]): void {
+        if (this.lqr.hasGain()) return;
+
+        const { A, B } = this.linearization.computeStateInputJacobians(currentState, this.trimControls);
+        const n = A.length;
+        const m = B[0]?.length || 4;
+
+        const Q = Array.from({ length: n }, (_, i) =>
+            Array.from({ length: n }, (_, j) => (i === j ? (i < 9 ? 10 : 1) : 0))
+        );
+        const R = Array.from({ length: m }, (_, i) =>
+            Array.from({ length: m }, (_, j) => (i === j ? (i === 0 ? 4 : 2) : 0))
+        );
+
+        this.lqr.computeGain(A, B, Q, R);
+    }
 
     public update(dt: number, state: number[]): ControlInput {
         if (this.mode === AutopilotMode.OFF) {
@@ -58,25 +76,16 @@ export class Autopilot {
         }
 
         if (this.mode === AutopilotMode.LQR_HOLD) {
-            if (!this.lqr['K']) {
-                // Compute K on first enable? Or assume pre-computed
-                // For now, let's assume we need to compute it once.
-                // This is heavy, should be async or pre-calculated.
-                return { throttle: 0.5, elevator: 0, aileron: 0, rudder: 0 };
-            }
+            this.ensureLqrGain(state);
 
             if (!this.refState) this.refState = [...state];
 
             const u_vec = this.lqr.update(state, this.refState);
-            // u_vec = [delta_thrust, delta_elev, delta_ail, delta_rud]
-
-            // Map to controls (add trim?)
-            // Assuming linearized around trim controls?
             return {
-                throttle: 0.5 + u_vec[0],
-                elevator: u_vec[1],
-                aileron: u_vec[2],
-                rudder: u_vec[3]
+                throttle: Math.max(0, Math.min(1, this.trimControls.throttle + (u_vec[0] || 0))),
+                aileron: Math.max(-0.5, Math.min(0.5, this.trimControls.aileron + (u_vec[1] || 0))),
+                elevator: Math.max(-0.5, Math.min(0.5, this.trimControls.elevator + (u_vec[2] || 0))),
+                rudder: Math.max(-0.5, Math.min(0.5, this.trimControls.rudder + (u_vec[3] || 0)))
             };
         }
 

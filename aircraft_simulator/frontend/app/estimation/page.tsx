@@ -2,95 +2,89 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { simulationEngine } from "@/lib/simulation/simulation-engine";
-import { ExtendedKalmanFilter } from "@/lib/simulation/estimation/ekf-core";
-import { GPS } from "@/lib/simulation/estimation/sensors";
 import { LineChart, Line, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { useSimulationStore } from "@/stores/useSimulationStore";
 import FaultControlPanel from "@/components/estimation/FaultControlPanel";
 import { Play, Pause, RotateCcw, Activity, ShieldCheck, ChevronRight, FileText, Loader2 } from "lucide-react";
-import * as math from "mathjs";
-import { ValidationSystem, ValidationMetrics, ObservabilityResult } from "@/lib/simulation/ValidationSystem";
-import { adversarialNoiseGenerator } from "@/lib/simulation/estimation/adversarial/AdversarialNoise";
-import { Matrix } from "ml-matrix";
+import { Matrix, inverse } from "ml-matrix";
 import { AppContainer } from "@/components/ui/AppContainer";
 import { toast } from "sonner";
+import { ValidationSnapshot, validationEngine } from "@/lib/validation/ValidationEngine";
+import { Quat } from "@/lib/simulation/utils";
 
-const ekf = new ExtendedKalmanFilter();
-const gps = new GPS();
-const validator = new ValidationSystem(simulationEngine);
+type Metrics = { nees: number; nis: number; neesUpper: number; isConsistent: boolean };
+type HistoryPoint = { time: string; nees: number; nis: number; nees_upper: number };
+
+const NEES_UPPER = 19.02;
+const NIS_UPPER = 7.81;
+
+function computeMetricsFromEstimate(
+    estState: number[],
+    truthPos: [number, number, number],
+    covariance: number[][]
+): Metrics {
+    const posEst: [number, number, number] = [
+        estState[9] ?? truthPos[0],
+        estState[10] ?? truthPos[1],
+        estState[11] ?? truthPos[2]
+    ];
+    const err = [
+        posEst[0] - truthPos[0],
+        posEst[1] - truthPos[1],
+        posEst[2] - truthPos[2]
+    ];
+    const P = new Matrix([
+        [covariance[9]?.[9] ?? 1, covariance[9]?.[10] ?? 0, covariance[9]?.[11] ?? 0],
+        [covariance[10]?.[9] ?? 0, covariance[10]?.[10] ?? 1, covariance[10]?.[11] ?? 0],
+        [covariance[11]?.[9] ?? 0, covariance[11]?.[10] ?? 0, covariance[11]?.[11] ?? 1]
+    ]);
+    const R = Matrix.eye(3).mul(25);
+    const S = P.add(R);
+
+    const e = new Matrix([[err[0]], [err[1]], [err[2]]]);
+    const PInv = inverse(P);
+    const SInv = inverse(S);
+    const nees = e.transpose().mmul(PInv).mmul(e).get(0, 0);
+    const nis = e.transpose().mmul(SInv).mmul(e).get(0, 0);
+
+    return {
+        nees,
+        nis,
+        neesUpper: NEES_UPPER,
+        isConsistent: nees <= NEES_UPPER && nis <= NIS_UPPER
+    };
+}
 
 export default function EstimationValidationLab() {
     const [simTime, setSimTime] = useState(0);
     const [paused, setPaused] = useState(true);
-    const [metrics, setMetrics] = useState<ValidationMetrics | null>(null);
-    const [obsResult, setObsResult] = useState<ObservabilityResult | null>(null);
-    const [history, setHistory] = useState<any[]>([]);
+    const [mounted, setMounted] = useState(false);
+    const [metrics, setMetrics] = useState<Metrics | null>(null);
+    const [snapshot, setSnapshot] = useState<ValidationSnapshot | null>(null);
+    const [history, setHistory] = useState<HistoryPoint[]>([]);
     const [isExporting, setIsExporting] = useState(false);
 
     const setScene = useSimulationStore((state) => state.setScene);
     const setEstimationData = useSimulationStore((state) => state.setEstimationData);
 
     // Storage for report snapshots
-    const latestF = useRef<Matrix | null>(null);
-
-    const computeMach = (v: { x: number, y: number, z: number }) => {
-        const speed = Math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2);
-        return speed / 340.29; // Speed of sound at sea level approx
-    };
+    const snapshotBusyRef = useRef(false);
 
     const simTimeRef = useRef(0);
 
     const step = useCallback((dt: number) => {
         simulationEngine.update(dt);
         const truth = simulationEngine.getRenderState(0);
+        const core = simulationEngine.getCoreState();
+        const estimate = core.estimate;
+        if (!estimate?.state || !estimate?.covariance) return;
 
-        ekf.predict(simulationEngine.getControls(), dt);
-
-        // Use ref for calculation
-        const currentTime = simTimeRef.current;
-        let meas = gps.measure(truth, dt, currentTime + dt);
-        let innov = [0, 0, 0];
-
-        const F = validator.computeSystemMatrix(truth, dt);
-        latestF.current = F;
-        const H_val = validator.computeMeasurementMatrix();
-
-        if (meas) {
-            const H_ekf = GPS.getJacobian();
-            const v_adv = adversarialNoiseGenerator.computeNoise(H_ekf, meas.R);
-            meas.z = meas.z.map((val, i) => val + (v_adv[i] || 0));
-
-            ekf.update(meas, H_ekf);
-
-            const estPos = ekf.getEstimate().xHat.p;
-            innov = [
-                meas.z[0] - estPos.x,
-                meas.z[1] - estPos.y,
-                meas.z[2] - estPos.z
-            ];
-        }
-
-        const est = ekf.getEstimate();
-        const P_array = est.P;
-        const P_matrix = new Matrix(P_array);
-
-        const H_mat = new Matrix(3, 19);
-        H_mat.set(0, 0, 1); H_mat.set(1, 1, 1); H_mat.set(2, 2, 1);
-
-        const R_mat = Matrix.eye(3).mul(100);
-        const S_mat = H_mat.mmul(P_matrix).mmul(H_mat.transpose()).add(R_mat);
-
-        const metricSnapshot = validator.computeMetrics(
-            [est.xHat.p.x, est.xHat.p.y, est.xHat.p.z],
+        const metricSnapshot = computeMetricsFromEstimate(
+            estimate.state,
             [truth.p.x, truth.p.y, truth.p.z],
-            P_matrix.subMatrix(0, 2, 0, 2),
-            innov,
-            S_mat
+            estimate.covariance
         );
         setMetrics(metricSnapshot);
-
-        const obsSnapshot = validator.analyzeObservability(F, H_val);
-        setObsResult(obsSnapshot);
 
         // Update Ref and State
         simTimeRef.current += dt;
@@ -98,32 +92,50 @@ export default function EstimationValidationLab() {
 
         setEstimationData({
             estimatedState: {
-                position: est.xHat.p,
-                rotation: est.xHat.q
+                position: {
+                    x: estimate.state[9] ?? truth.p.x,
+                    y: estimate.state[10] ?? truth.p.y,
+                    z: estimate.state[11] ?? truth.p.z
+                },
+                rotation: Quat.fromEuler(
+                    estimate.state[6] ?? 0,
+                    estimate.state[7] ?? 0,
+                    estimate.state[8] ?? 0
+                )
             },
-            covariance: P_array
+            covariance: estimate.covariance
         });
 
         setHistory(prev => {
-            const nw = [...prev, {
+            const nw: HistoryPoint[] = [...prev, {
                 time: (simTimeRef.current).toFixed(1),
                 nees: metricSnapshot.nees,
                 nis: metricSnapshot.nis,
-                nees_upper: metricSnapshot.neesBounds[1],
+                nees_upper: metricSnapshot.neesUpper,
             }];
             if (nw.length > 50) nw.shift();
             return nw;
         });
 
+        if (!snapshotBusyRef.current && Math.floor(simTimeRef.current * 10) % 5 === 0) {
+            snapshotBusyRef.current = true;
+            validationEngine.runSnapshot(simulationEngine)
+                .then((snap) => setSnapshot(snap))
+                .finally(() => {
+                    snapshotBusyRef.current = false;
+                });
+        }
+
     }, [setEstimationData]);
 
     useEffect(() => {
         setScene('estimation');
-        try {
-            const initTruth = simulationEngine.getInitialState();
-            ekf.init(initTruth, (math.identity(19) as any).toArray());
-        } catch (e) { }
+        validationEngine.runSnapshot(simulationEngine).then((snap) => setSnapshot(snap));
     }, [setScene]);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     useEffect(() => {
         if (paused) return;
@@ -138,34 +150,15 @@ export default function EstimationValidationLab() {
     }, [paused, step]);
 
     const handleExport = async () => {
-        const F_mat = latestF.current;
-        if (!metrics || !obsResult || !F_mat) {
+        if (!snapshot) {
             toast.error("No telemetry data available for report");
             return;
         }
 
         setIsExporting(true);
-        const truth = simulationEngine.getRenderState(0);
-        const machValue = computeMach(truth.v);
-        const alphaDeg = (truth.alpha * 180 / Math.PI).toFixed(1);
-
         try {
             const mod = await import('@/lib/validation/ValidationReportGenerator');
-            mod.ValidationReportGenerator.generateReport({
-                trimId: `M${machValue.toFixed(2)} / AoA ${alphaDeg}°`,
-                F: F_mat.to2DArray(),
-                consistency: {
-                    nees: metrics.nees,
-                    nis: metrics.nis,
-                    bounds: {
-                        nees95: metrics.neesBounds[1],
-                        nis95: metrics.nisBounds[1]
-                    }
-                },
-                observability: {
-                    singularValues: obsResult.singularValues
-                }
-            });
+            mod.ValidationReportGenerator.generateReport(snapshot);
             toast.success("Validation Report Generated");
         } catch (e) {
             toast.error("Generation Failed");
@@ -215,16 +208,18 @@ export default function EstimationValidationLab() {
                                     <h3 className="text-[10px] font-mono tracking-[0.2em] text-white/40 uppercase">Consistency (NEES)</h3>
                                 </div>
                                 <div className="h-32 bg-black/40 rounded-2xl border border-white/5 overflow-hidden p-4">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={history}>
-                                            <CartesianGrid stroke="#ffffff05" vertical={false} />
-                                            <YAxis hide domain={[0, 25]} />
-                                            <Line type="monotone" dataKey="nees" stroke="#38bdf8" strokeWidth={1} dot={false} isAnimationActive={false} />
-                                            <Line type="monotone" dataKey="nees_upper" stroke="#f43f5e" strokeWidth={1} strokeDasharray="3 3" dot={false} isAnimationActive={false} />
-                                        </LineChart>
-                                    </ResponsiveContainer>
+                                    {mounted ? (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={history}>
+                                                <CartesianGrid stroke="#ffffff05" vertical={false} />
+                                                <YAxis hide domain={[0, 25]} />
+                                                <Line type="monotone" dataKey="nees" stroke="#38bdf8" strokeWidth={1} dot={false} isAnimationActive={false} />
+                                                <Line type="monotone" dataKey="nees_upper" stroke="#f43f5e" strokeWidth={1} strokeDasharray="3 3" dot={false} isAnimationActive={false} />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    ) : null}
                                 </div>
-                                <div className="flex justify-between mt-4">
+                                    <div className="flex justify-between mt-4">
                                     <span className="text-[10px] font-mono text-white/20 uppercase tracking-widest italic">NEES: {metrics?.nees.toFixed(1) || "-"}</span>
                                     <span className={`text-[10px] font-mono uppercase tracking-widest ${metrics?.isConsistent ? 'text-accent/40' : 'text-red-400/40'}`}>
                                         {metrics?.isConsistent ? 'CONSISTENT' : 'DIVERGING'}
@@ -239,11 +234,11 @@ export default function EstimationValidationLab() {
                                 </div>
                                 <div className="space-y-6">
                                     <div className="flex items-end gap-3">
-                                        <span className="text-5xl font-mono text-white/90 font-light">{obsResult?.rank ?? "-"}</span>
+                                        <span className="text-5xl font-mono text-white/90 font-light">{snapshot?.observability.rank ?? "-"}</span>
                                         <span className="text-xs text-white/20 mb-2 italic">/ 9 Observable States</span>
                                     </div>
                                     <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                                        <div className="h-full bg-accent/40" style={{ width: `${((obsResult?.rank || 0) / 9) * 100}%` }} />
+                                        <div className="h-full bg-accent/40" style={{ width: `${((snapshot?.observability.rank || 0) / 9) * 100}%` }} />
                                     </div>
                                 </div>
                             </div>

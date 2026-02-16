@@ -11,7 +11,7 @@ interface HangarViewerProps {
 
 function AircraftModel({ meshUrl, scale }: { meshUrl: string, scale: number }) {
     // Placeholder for now. Eventually load GLTF.
-    // simpler to just use a primitive for the placeholder if GLB loading fails or isn't set up
+    // Simpler primitive fallback if GLB loading fails or is not configured.
     return (
         <group scale={scale}>
             <mesh>

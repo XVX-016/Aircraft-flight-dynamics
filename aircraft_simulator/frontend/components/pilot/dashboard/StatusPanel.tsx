@@ -1,9 +1,10 @@
 "use client";
 
 import { useSim } from '@/lib/providers/SimProvider';
+import { AutopilotMode } from '@/core/control/autopilot';
 
 const StatusPanel = () => {
-    const { time } = useSim();
+    const { time, autopilotMode, estimate } = useSim();
 
     // Format time mm:ss:ms
     const minutes = Math.floor(time / 60);
@@ -11,12 +12,23 @@ const StatusPanel = () => {
     const ms = Math.floor((time * 100) % 100);
     const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${ms.toString().padStart(2, '0')}`;
 
+    const covTrace = estimate
+        ? (estimate.covariance[9]?.[9] ?? 0) + (estimate.covariance[10]?.[10] ?? 0) + (estimate.covariance[11]?.[11] ?? 0)
+        : Infinity;
+    const ekfStatus = covTrace < 50 ? 'CONVERGED' : covTrace < 250 ? 'TRACKING' : 'INIT';
+    const apStatus =
+        autopilotMode === AutopilotMode.OFF
+            ? 'OFF'
+            : autopilotMode === AutopilotMode.PID_SIMPLE
+                ? 'PID'
+                : 'LQR';
+
     const services = [
         { name: 'Physics Core', status: 'ONLINE', color: 'bg-accent' },
         { name: 'Aerodynamics', status: 'ONLINE', color: 'bg-accent' },
         { name: 'Sensors (GPS+AHRS)', status: 'ACTIVE', color: 'bg-accent' },
-        { name: 'EKF Estimator', status: 'CONVERGED', color: 'bg-emerald-500' },
-        { name: 'Autopilot', status: 'STANDBY', color: 'bg-blue-500' },
+        { name: 'EKF Estimator', status: ekfStatus, color: ekfStatus === 'CONVERGED' ? 'bg-emerald-500' : 'bg-amber-500' },
+        { name: 'Autopilot', status: apStatus, color: apStatus === 'OFF' ? 'bg-white/40' : 'bg-blue-500' },
     ];
 
     return (

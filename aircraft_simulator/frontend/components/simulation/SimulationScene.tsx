@@ -2,8 +2,9 @@
 
 import { Canvas, useFrame } from "@react-three/fiber";
 import { PerspectiveCamera, Environment, Grid, OrbitControls } from "@react-three/drei";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { Group } from "three";
+import * as THREE from "three";
 import { useSim } from "@/lib/providers/SimProvider";
 import FlowField from "./visuals/FlowField";
 import { AircraftConfig } from "@/lib/simulation/types/aircraft";
@@ -20,6 +21,17 @@ const config = defaultAircraft as unknown as AircraftConfigType;
 function PhysicsAircraftBinding({ scale }: { scale: number }) {
     const ref = useRef<Group>(null);
     const { truthState } = useSim();
+    const nedToGl = useMemo(() => (
+        new THREE.Matrix4().set(
+            0, 1, 0, 0,
+            0, 0, -1, 0,
+            -1, 0, 0, 0,
+            0, 0, 0, 1
+        )
+    ), []);
+    const rNed = useMemo(() => new THREE.Matrix4(), []);
+    const rGl = useMemo(() => new THREE.Matrix4(), []);
+    const qGl = useMemo(() => new THREE.Quaternion(), []);
 
     useFrame(() => {
         if (!ref.current || !truthState) return;
@@ -34,9 +46,11 @@ function PhysicsAircraftBinding({ scale }: { scale: number }) {
             -truthState.p.x
         );
 
-        // Apply quaternion (NED to GL conversion TODO)
         const qNed = truthState.q;
-        ref.current.quaternion.set(qNed.x, qNed.y, qNed.z, qNed.w);
+        rNed.makeRotationFromQuaternion(new THREE.Quaternion(qNed.x, qNed.y, qNed.z, qNed.w));
+        rGl.multiplyMatrices(nedToGl, rNed);
+        qGl.setFromRotationMatrix(rGl);
+        ref.current.quaternion.copy(qGl);
     });
 
     return (

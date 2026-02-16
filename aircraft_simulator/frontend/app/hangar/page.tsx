@@ -6,6 +6,8 @@ import defaultAircraft from "@/lib/simulation/data/default_aircraft.json";
 import { AircraftConfig } from "@/lib/simulation/types/aircraft";
 import { useSimulationStore } from "@/stores/useSimulationStore";
 import { useEffect } from "react";
+import { simulationEngine } from "@/lib/simulation/simulation-engine";
+import { toast } from "sonner";
 
 // Cast the default json to AircraftConfig
 const aircraft: AircraftConfig = defaultAircraft as unknown as AircraftConfig;
@@ -16,6 +18,13 @@ export default function HangarPage() {
     useEffect(() => {
         setScene('hangar');
     }, [setScene]);
+
+    const handleLoadConfiguration = () => {
+        simulationEngine.setAircraftConfig(aircraft);
+        toast.success("Aircraft model loaded into core engine", {
+            description: `${aircraft.name} parameters now drive simulation dynamics.`
+        });
+    };
 
     return (
         <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
@@ -29,7 +38,7 @@ export default function HangarPage() {
                     </div>
                     <div className="flex gap-4">
                         <button className="btn-glow text-xs">Import JSON</button>
-                        <button className="btn-glow-primary text-xs">Load Configuration</button>
+                        <button className="btn-glow-primary text-xs" onClick={handleLoadConfiguration}>Load Configuration</button>
                     </div>
                 </header>
 

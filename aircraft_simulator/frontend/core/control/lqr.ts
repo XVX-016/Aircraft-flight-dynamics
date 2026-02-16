@@ -1,62 +1,58 @@
-import { Linearization } from "../analysis/linearization";
-import { TrimResult } from "../analysis/trim";
 import * as math from "mathjs"; // Assuming we can use mathjs for matrix ops if needed
-// Actually, solving Riccati Equation (CARE) is hard in pure JS without specific decomposers.
-// We will implement a simple Kleinman's algorithm or iterative solver if feasible, 
-// OR just use a fixed K gain for the specific flight condition (Gain Scheduling).
-// For this "Tier 1" undergrad project, computing K offline or using a simplified solver is acceptable.
-// Let's implement a Discrete Time LQR solver since we have discrete steps?
-// Or Continuous CARE solver via Newton's method.
 
 export class LQR {
     private K: number[][] | null = null;
-    private linearization: Linearization;
 
     constructor(initialK?: number[][]) {
         this.K = initialK || null;
-        this.linearization = new Linearization();
+    }
+
+    public hasGain(): boolean {
+        return this.K !== null;
+    }
+
+    public getGain(): number[][] | null {
+        return this.K ? this.K.map((row) => [...row]) : null;
     }
 
     public computeGain(A: number[][], B: number[][], Q: number[][], R: number[][]): number[][] {
-        // Solves Continuous Algebraic Riccati Equation: A'P + PA - PBR^-1B'P + Q = 0
-        // K = R^-1 B' P
-
-        // Implementing a Kleinman/Newton iterative solver for CARE
-        // 1. Initial stabilizing K0? or just integrate P_dot?
-        // Integration is robust. P_dot = A'P + PA - PBR^-1B'P + Q
-        // Simulate until steady state.
-
-        const n = A.length;
-        let P = math.zeros([n, n]) as math.Matrix;
-
-        // Integration steps
-        const dt = 0.01;
-        const maxTime = 10.0; // Seconds to converge
-        const steps = maxTime / dt;
-
-        const At = math.transpose(math.matrix(A));
-        const Bt = math.transpose(math.matrix(B));
-        const R_inv = math.inv(math.matrix(R));
-        const BRinvBt = math.multiply(math.multiply(math.matrix(B), R_inv), Bt); // B * R^-1 * B'
+        const A_mat = math.matrix(A);
+        const B_mat = math.matrix(B);
         const Q_mat = math.matrix(Q);
+        const R_mat = math.matrix(R);
 
-        for (let i = 0; i < steps; i++) {
-            // P_dot = A'P + PA - P * S * P + Q
-            const PA = math.multiply(P, math.matrix(A));
-            const AtP = math.multiply(At, P);
-            const P_S_P = math.multiply(math.multiply(P, BRinvBt), P);
+        let P = math.matrix(Q);
+        const maxIter = 500;
+        const tol = 1e-8;
 
-            const P_dot = math.add(math.subtract(math.add(AtP, PA), P_S_P), Q_mat);
+        for (let k = 0; k < maxIter; k++) {
+            const BtP = math.multiply(math.transpose(B_mat), P);
+            const S = math.add(R_mat, math.multiply(BtP, B_mat));
+            const S_inv = math.inv(S);
+            const AtP = math.multiply(math.transpose(A_mat), P);
+            const AtPA = math.multiply(AtP, A_mat);
+            const AtPB = math.multiply(AtP, B_mat);
+            const BtPA = math.multiply(BtP, A_mat);
+            const correction = math.multiply(math.multiply(AtPB, S_inv), BtPA);
+            const P_next = math.add(math.subtract(AtPA, correction), Q_mat) as math.Matrix;
 
-            // Euler step
-            P = math.add(P, math.multiply(P_dot, dt)) as math.Matrix;
+            const delta = math.subtract(P_next, P) as math.Matrix;
+            const deltaArr = delta.toArray() as number[][];
+            let normInf = 0.0;
+            for (const row of deltaArr) {
+                for (const v of row) normInf = Math.max(normInf, Math.abs(v));
+            }
+            P = P_next;
+            if (normInf < tol) break;
         }
 
-        // K = R^-1 B' P
-        const K_mat = math.multiply(math.multiply(R_inv, Bt), P);
+        const K_mat = math.multiply(
+            math.inv(math.add(R_mat, math.multiply(math.multiply(math.transpose(B_mat), P), B_mat))),
+            math.multiply(math.multiply(math.transpose(B_mat), P), A_mat)
+        ) as math.Matrix;
 
-        this.K = (K_mat.toArray() as any) as number[][];
-        return this.K;
+        this.K = K_mat.toArray() as number[][];
+        return this.K.map((row) => [...row]);
     }
 
     public update(state: number[], reference: number[]): number[] {
@@ -72,7 +68,7 @@ export class LQR {
 
         // Negate for negative feedback? Standard is u = -Kx
         const u_out = math.multiply(u, -1);
-
-        return (u_out.toArray() as any).flat() as number[];
+        const outArr = (Array.isArray(u_out) ? u_out : math.matrix(u_out).toArray()) as unknown[];
+        return outArr.flatMap((v) => (Array.isArray(v) ? (v as number[]) : [Number(v)]));
     }
 }

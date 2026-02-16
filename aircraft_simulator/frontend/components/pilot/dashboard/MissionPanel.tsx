@@ -1,10 +1,17 @@
 "use client";
 
+import { useSim } from "@/lib/providers/SimProvider";
+
 const MissionPanel = () => {
+    const { time } = useSim();
+    const missionProgress = Math.min(100, (time / 120) * 100);
+    const phase2 = Math.max(0, Math.min(100, (time - 40) / 80 * 100));
+    const phase3 = Math.max(0, Math.min(100, (time - 90) / 60 * 100));
+
     const missions = [
-        { id: 'MSN-001', name: 'Orbital Insertion', status: 'ACTIVE', progress: 65 },
-        { id: 'MSN-002', name: 'Station Keeping', status: 'QUEUED', progress: 0 },
-        { id: 'MSN-003', name: 'De-orbit Burn', status: 'SCHEDULED', progress: 0 },
+        { id: 'FL-001', name: 'Climb & Stabilize', status: missionProgress < 100 ? 'ACTIVE' : 'COMPLETE', progress: missionProgress },
+        { id: 'FL-002', name: 'Cruise Hold', status: phase2 <= 0 ? 'QUEUED' : phase2 < 100 ? 'ACTIVE' : 'COMPLETE', progress: phase2 },
+        { id: 'FL-003', name: 'Approach Prep', status: phase3 <= 0 ? 'SCHEDULED' : phase3 < 100 ? 'ACTIVE' : 'COMPLETE', progress: phase3 },
     ];
 
     return (

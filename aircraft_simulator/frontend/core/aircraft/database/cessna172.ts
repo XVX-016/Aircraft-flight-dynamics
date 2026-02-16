@@ -39,6 +39,6 @@ export const CESSNA_172R: AircraftConfig = {
         cndr: -0.06
     },
     propulsion: {
-        maxThrust: 2400 // Approx ~160hp propeller static thrust (conservative placeholder)
+        maxThrust: 2400
     }
 };

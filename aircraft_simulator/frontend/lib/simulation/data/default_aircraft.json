@@ -61,6 +61,6 @@
         "aileronMax": 0.4,
         "rudderMax": 0.4
     },
-    "meshUrl": "/models/aircraft_placeholder.glb",
+    "meshUrl": "/models/fighterplane/scene.gltf",
     "scale": 1.0
 }

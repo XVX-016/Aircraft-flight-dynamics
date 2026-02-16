@@ -4,6 +4,7 @@ import { Aerodynamics } from "../aerodynamics/aerodynamics";
 import { RigidBody } from "../dynamics/rigid-body";
 import { CESSNA_172R } from "../aircraft/database/cessna172";
 import * as math from "mathjs";
+import { Matrix, inverse } from "ml-matrix";
 
 // EKF State Vector [u, v, w, p, q, r, phi, theta, psi, x, y, z] (12)
 // For biases we might extend later. 
@@ -102,48 +103,38 @@ export class EKF {
         // x: State Vector (12)
         // H: Measurement Model (Identity for full state measurement)
 
-        const z_mat = math.matrix(z).resize([12, 1]);
-        const x_mat = math.matrix(this.x).resize([12, 1]);
-        const P_mat = math.matrix(this.P);
-        const R_mat = math.matrix(this.R);
-        const H_mat = math.identity(12); // Assume direct measurement of all states for this stage
+        const z_mat = Matrix.columnVector(z);
+        const x_mat = Matrix.columnVector(this.x);
+        const P_mat = new Matrix(this.P);
+        const R_mat = new Matrix(this.R);
+        const H_mat = Matrix.eye(12); // Assume direct measurement of all states for this stage
 
         // Innovation y = z - Hx
-        const y = math.subtract(z_mat, math.multiply(H_mat, x_mat));
+        const y = z_mat.sub(H_mat.mmul(x_mat));
 
         // Innovation Covariance S = H P H' + R
-        const S = math.add(
-            math.multiply(math.multiply(H_mat, P_mat), math.transpose(H_mat)),
-            R_mat
-        );
+        const S = H_mat.mmul(P_mat).mmul(H_mat.transpose()).add(R_mat);
 
         // Kalman Gain K = P H' S^-1
-        const PHt = math.multiply(P_mat, math.transpose(H_mat));
-        let S_inv: any;
+        let S_inv: Matrix;
         try {
-            S_inv = math.inv(S);
+            S_inv = inverse(S);
         } catch (e) {
             console.error("Matrix Inversion Failed", e);
             return;
         }
 
-        const K = math.multiply(PHt, S_inv);
+        const K = P_mat.mmul(H_mat.transpose()).mmul(S_inv);
 
         // Update State x = x + Ky
-        const Ky = math.multiply(K, y);
-        const x_new = math.add(x_mat, Ky);
+        const x_new = x_mat.add(K.mmul(y));
 
         // Update Covariance P = (I - KH)P
-        const I = math.identity(12);
-        const KH = math.multiply(K, H_mat);
-        const I_KH = math.subtract(I, KH as any); // Type assertion for subtraction
-        const P_new = math.multiply(
-            I_KH,
-            P_mat
-        );
+        const I = Matrix.eye(12);
+        const P_new = I.sub(K.mmul(H_mat)).mmul(P_mat);
 
-        this.x = (x_new as any).toArray().flat();
-        this.P = (P_new as any).toArray();
+        this.x = x_new.to1DArray();
+        this.P = P_new.to2DArray();
     }
 
     public getEstimate() {

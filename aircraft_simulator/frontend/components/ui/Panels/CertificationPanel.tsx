@@ -1,7 +1,7 @@
 "use client";
 
 import { useSim } from "@/lib/providers/SimProvider";
-import { validateState } from "@/lib/simulation/ValidationSystem";
+import { validateState } from "@/lib/validation/airworthiness";
 import { ShieldCheck, ShieldAlert, AlertTriangle, FileText } from "lucide-react";
 import { useMemo } from "react";
 
@@ -12,16 +12,16 @@ export default function CertificationPanel() {
     const altitude = derived?.altitude ?? 0;
     const airspeed = derived?.airspeed ?? 0;
 
-    // Euler angles from quaternion
-    const orientation: [number, number, number] = truthState
-        ? [
-            Math.atan2(2 * (truthState.q.w * truthState.q.x + truthState.q.y * truthState.q.z), 1 - 2 * (truthState.q.x ** 2 + truthState.q.y ** 2)),
-            Math.asin(2 * (truthState.q.w * truthState.q.y - truthState.q.z * truthState.q.x)),
-            Math.atan2(2 * (truthState.q.w * truthState.q.z + truthState.q.x * truthState.q.y), 1 - 2 * (truthState.q.y ** 2 + truthState.q.z ** 2))
-        ]
-        : [0, 0, 0];
-
-    const v = useMemo(() => validateState(orientation, airspeed, altitude), [orientation, airspeed, altitude]);
+    const v = useMemo(() => {
+        const orientation: [number, number, number] = truthState
+            ? [
+                Math.atan2(2 * (truthState.q.w * truthState.q.x + truthState.q.y * truthState.q.z), 1 - 2 * (truthState.q.x ** 2 + truthState.q.y ** 2)),
+                Math.asin(2 * (truthState.q.w * truthState.q.y - truthState.q.z * truthState.q.x)),
+                Math.atan2(2 * (truthState.q.w * truthState.q.z + truthState.q.x * truthState.q.y), 1 - 2 * (truthState.q.y ** 2 + truthState.q.z ** 2))
+            ]
+            : [0, 0, 0];
+        return validateState(orientation, airspeed, altitude);
+    }, [truthState, airspeed, altitude]);
 
     return (
         <div className="absolute bottom-8 left-8 w-80 bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-xl p-5 shadow-2xl">
