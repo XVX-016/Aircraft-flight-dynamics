@@ -5,53 +5,43 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { generateSDFFromMesh } from "@/lib/utils/sdfGenerator";
 
-const PARTICLE_COUNT = 40_000;
+const PARTICLE_COUNT = 12000;
 
 export default function AirflowParticles() {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const [sdfData, setSdfData] = useState<{ texture: THREE.Data3DTexture | null, box: THREE.Box3 | null }>({ texture: null, box: null });
 
-  // 1. GENERATE PROCEDURAL MESH & SDF (Mocking the "Any Body" load)
   useEffect(() => {
-    // Compose a dummy fighter jet mesh to prove the system works dynamically
     const group = new THREE.Group();
 
-    // Fuselage
     const bodyGeo = new THREE.ConeGeometry(1.0, 8.0, 32);
-    bodyGeo.rotateZ(-Math.PI / 2); // Point along X
+    bodyGeo.rotateZ(-Math.PI / 2);
     const body = new THREE.Mesh(bodyGeo, new THREE.MeshBasicMaterial());
-    body.position.set(-1.0, 0, 0); // Center bias
+    body.position.set(-1.0, 0, 0);
     group.add(body);
 
-    // Wings (Delta)
     const wingShape = new THREE.Shape();
     wingShape.moveTo(0, 0);
     wingShape.lineTo(2, 3);
-    wingShape.lineTo(4, 3); // Trailing edge
+    wingShape.lineTo(4, 3);
     wingShape.lineTo(4, -3);
     wingShape.lineTo(2, -3);
-    wingShape.lineTo(0, 0); // Close
+    wingShape.lineTo(0, 0);
     const wingGeo = new THREE.ExtrudeGeometry(wingShape, { depth: 0.2, bevelEnabled: false });
     wingGeo.rotateX(Math.PI / 2);
-    wingGeo.rotateY(Math.PI / 2); // Flat on XZ
+    wingGeo.rotateY(Math.PI / 2);
     wingGeo.translate(1.0, 0, 0);
     const wings = new THREE.Mesh(wingGeo, new THREE.MeshBasicMaterial());
     group.add(wings);
 
-    // Fins
     const finGeo = new THREE.BoxGeometry(2, 1.5, 0.2);
-    finGeo.translate(3.0, 0.75, 0); // Back and up
-    const finL = new THREE.Mesh(finGeo, new THREE.MeshBasicMaterial()); // Single fin for now or mirrored?
-    // Let's assume single vertical fin
+    finGeo.translate(3.0, 0.75, 0);
+    const finL = new THREE.Mesh(finGeo, new THREE.MeshBasicMaterial());
     group.add(finL);
-
-    // MERGING SKIPPED FOR V1: Using the Fuselage (Body) as the main collider for the "Any Body" proof.
-    // This avoids needing complex BufferGeometry utils or deprecated classes.
 
     const result = generateSDFFromMesh(body, 64);
     setSdfData(result);
 
-    // Cleanup?
     return () => {
       if (result.texture) result.texture.dispose();
     };
@@ -63,7 +53,7 @@ export default function AirflowParticles() {
     const phs = new Float32Array(PARTICLE_COUNT);
 
     const gridSide = Math.floor(Math.sqrt(PARTICLE_COUNT));
-    const spacing = 0.12; // TIGHTER SPACING FOR VISIBILITY
+    const spacing = 0.12;
 
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const ix = i % gridSide;
@@ -90,7 +80,6 @@ export default function AirflowParticles() {
     uBoxMax: { value: new THREE.Vector3(15, 15, 15) },
   }), []);
 
-  // Update uniforms when SDF is ready
   useEffect(() => {
     if (sdfData.texture) {
       uniforms.uSDFTexture.value = sdfData.texture;
@@ -125,37 +114,26 @@ export default function AirflowParticles() {
             varying float vShock;
             varying vec2 vUv;
 
-            // Sample the SDF Texture
             float getSDF(vec3 p) {
-                // Map world p to 0..1 uvw
-                vec3 size = uBoxMax - uBoxMin;
+                vec3 size = max(uBoxMax - uBoxMin, vec3(0.001));
                 vec3 uvw = (p - uBoxMin) / size;
-                
-                // If outsde box, return safe distance
                 if (any(lessThan(uvw, vec3(0.0))) || any(greaterThan(uvw, vec3(1.0)))) {
-                    return 5.0; // Outside (safe)
+                    return 5.0;
                 }
-                
                 return texture(uSDFTexture, uvw).r;
             }
 
             void main() {
                 vUv = uv;
                 
-                // 1. POSITION (Right to Left)
-                // Cycle from +30 to -30
                 float loopTime = uTime * aSpeed + aPhase * 20.0;
                 float xFlow = 30.0 - mod(aOffset.x + loopTime * 15.0, 60.0);
                 vec3 simPos = vec3(xFlow, aOffset.y, aOffset.z);
 
-                // 2.AGRESSIVE SDF COLLISION
                 float dist = getSDF(simPos);
-                
-                // Smooth influence with larger margin
                 float margin = 3.0;
                 float airInfluence = smoothstep(margin, 0.0, dist); 
                 
-                // Gradient (Normal)
                 float e = 0.1;
                 vec3 normal = normalize(vec3(
                     getSDF(simPos + vec3(e, 0, 0)) - getSDF(simPos - vec3(e, 0, 0)),
@@ -163,20 +141,16 @@ export default function AirflowParticles() {
                     getSDF(simPos + vec3(0, 0, e)) - getSDF(simPos - vec3(0, 0, e))
                 ));
 
-                // Laminar Flow (Right to Left is -X)
                 vec3 flowDir = vec3(-1.0, 0.0, 0.0);
                 vec3 tangent = normalize(flowDir - dot(flowDir, normal) * normal);
                 
                 vec3 velocity = mix(flowDir, tangent, airInfluence);
                 
-                // Push out (Bow Wave effect)
                 simPos += normal * airInfluence * 2.0;
 
-                // 3. VORTEX PERSISTENCE
                 float wingSpan = 6.0; 
                 float wingEdgeX = 2.0; 
 
-                // Flow is Right->Left, so downstream is < wingEdgeX
                 if (simPos.x < wingEdgeX) {
                     float trailDist = abs(simPos.x - wingEdgeX);
                     vec3 tipPos = vec3(wingEdgeX, 0.0, sign(simPos.z) * wingSpan);
@@ -198,28 +172,24 @@ export default function AirflowParticles() {
                         
                         simPos.yz = tipPos.yz + rotatedPos;
                         
-                        // Spin velocity
                         velocity = normalize(velocity + vec3(0.0, -s, c) * 0.5);
                     }
                 }
 
-                // 4. MACH SHOCK (Rough Approx for Generic)
                 vShock = 0.0;
                 if (uMach > 1.0) {
                      float machAngle = asin(1.0 / uMach);
-                     // Cone faces +X (source)
                      float coneRad = (5.0 - simPos.x) * tan(machAngle); 
                      if (abs(length(simPos.yz) - coneRad) < 0.5) {
                          vShock = (uMach - 1.0);
                      }
                 }
                 
-                // 5. CINEMATIC STREAKS
                 vSpeed = length(velocity) + vShock * 2.0;
-                float streakLen = 15.0 * vSpeed; // Slightly reduced for density
+                float streakLen = 15.0 * vSpeed;
                 vec3 localPos = position;
                 localPos.x *= streakLen;
-                localPos.y *= 0.015; // THICKER LINES for visibility
+                localPos.y *= 0.015;
 
                 vec3 v = normalize(velocity);
                 vec3 u = vec3(0, 1, 0);
@@ -230,8 +200,7 @@ export default function AirflowParticles() {
                 vec3 finalVert = simPos + (rotMat * localPos);
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(finalVert, 1.0);
                 
-                // Alpha
-                vAlpha = (1.0 - smoothstep(20.0, 30.0, abs(simPos.x))); // Wider fade
+                vAlpha = (1.0 - smoothstep(20.0, 30.0, abs(simPos.x)));
                 vAlpha *= smoothstep(0.0, 0.2, dist); 
             }
         `,
@@ -242,18 +211,13 @@ export default function AirflowParticles() {
             varying vec2 vUv;
 
             void main() {
-                // Sharp Head
-                float head = pow(vUv.x, 5.0); // Softer head
-                
-                // BOOST VISIBILITY
+                float head = pow(vUv.x, 5.0);
                 vec3 smokeCol = vec3(1.0, 1.0, 1.0);
-                
-                // HIGH ALPHA for debugging/visibility
-                float alpha = vAlpha * head * 0.4; // Was 0.07, now 0.4
+                float alpha = vAlpha * head * 0.4;
                 
                 if (vShock > 0.1) {
                     alpha += vShock * 0.4;
-                    smokeCol = vec3(1.0, 0.9, 0.8); // Heat tint
+                    smokeCol = vec3(1.0, 0.9, 0.8);
                 }
                 
                 gl_FragColor = vec4(smokeCol, alpha);

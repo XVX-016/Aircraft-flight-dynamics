@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import Navigation from "@/components/pilot/Navigation";
+import Navigation from "@/components/layout/Navigation";
 import { Footer } from "@/components/layout/Footer";
 import { Toaster } from "@/components/ui/sonner";
-import { SimProvider } from "@/lib/providers/SimProvider";
+import { AircraftProvider } from "@/context/AircraftContext";
+import BackendStatusBanner from "@/components/layout/BackendStatusBanner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
@@ -21,17 +22,18 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en" className={`${inter.variable} ${jetbrains.variable}`}>
-            <body className="bg-neutral-950 text-slate-200 antialiased overflow-x-hidden vignette">
-                <SimProvider>
+            <body className="bg-neutral-950 text-slate-200 antialiased overflow-x-hidden">
+                <AircraftProvider>
                     <div className="flex flex-col min-h-screen">
                         <Navigation />
+                        <BackendStatusBanner />
                         <main className="flex-1 pt-16 relative z-10">
                             {children}
                         </main>
                         <Footer />
                     </div>
                     <Toaster />
-                </SimProvider>
+                </AircraftProvider>
             </body>
         </html>
     );

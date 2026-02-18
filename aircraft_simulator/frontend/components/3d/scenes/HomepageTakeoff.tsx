@@ -4,7 +4,6 @@ import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import { Group } from "three";
-import { AIRCRAFT_SCALE, AIRCRAFT_POSITION } from "@/lib/simulation/sceneConstants";
 import AirflowParticles from "../airflow/AirflowParticles";
 
 export default function HomepageTakeoff() {
@@ -12,20 +11,17 @@ export default function HomepageTakeoff() {
     const { scene } = useGLTF("/models/fighterplane/scene.gltf");
     const { size } = useThree();
 
-    // Responsive scale: shrink model on narrow viewports (using pixel width)
     const isMobile = size.width < 768;
     const modelScale = isMobile ? 1.5 : 2.5;
 
-    useFrame((state, delta) => {
+    useFrame(() => {
         if (planeRef.current) {
-            // Static orientation as requested ("Locked")
-            // Slight mouse parallax could be added here later if needed
+            return;
         }
     });
 
     return (
         <group>
-            {/* Cinematic Lighting */}
             <spotLight
                 position={[5, 10, 10]}
                 angle={0.5}
@@ -35,8 +31,7 @@ export default function HomepageTakeoff() {
             />
             <pointLight position={[-10, -10, -10]} intensity={2} color="#00e680" />
 
-            {/* Aircraft Group - Profile View (Nose Right) */}
-            <group ref={planeRef} rotation={[0, -Math.PI / 2, 0]} position={AIRCRAFT_POSITION}>
+            <group ref={planeRef} rotation={[0, -Math.PI / 2, 0]} position={[0, 0, 0]}>
                 <primitive
                     object={scene}
                     scale={modelScale}
@@ -45,7 +40,6 @@ export default function HomepageTakeoff() {
                 />
             </group>
 
-            {/* Physics-Based Airflow (GPU) */}
             <AirflowParticles />
         </group>
     );
