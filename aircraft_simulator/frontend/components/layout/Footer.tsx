@@ -22,7 +22,6 @@ export function Footer() {
                         Platform
                     </h4>
                     <ul className="space-y-3 text-white/50 text-xs tracking-wide">
-                        <li><Link href="/flight-lab" className="hover:text-white transition-colors">Flight Lab</Link></li>
                         <li><Link href="/hangar" className="hover:text-white transition-colors">Hangar</Link></li>
                         <li><Link href="/control" className="hover:text-white transition-colors">Control Systems</Link></li>
                         <li><Link href="/estimation" className="hover:text-white transition-colors">Estimation Suite</Link></li>

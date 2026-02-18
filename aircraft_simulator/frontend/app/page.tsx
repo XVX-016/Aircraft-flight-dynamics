@@ -1,15 +1,17 @@
 "use client";
 
 import HeroSection from '@/components/pilot/HeroSection';
-import FeaturesSection from '@/components/home/FeaturesSection';
-import ModelsPreviewSection from '@/components/home/ModelsPreviewSection';
+import CapabilitiesGrid from '@/components/home/CapabilitiesGrid';
+import ValidatedAircraft from '@/components/home/ValidatedAircraft';
+import { PhilosophySection } from '@/components/home/PhilosophySection';
 
 export default function LandingPage() {
   return (
     <>
       <HeroSection />
-      <FeaturesSection />
-      <ModelsPreviewSection />
+      <CapabilitiesGrid />
+      <ValidatedAircraft />
+      <PhilosophySection />
     </>
   );
 }

@@ -1,67 +1,208 @@
-# Aircraft Flight Dynamics Simulator
+# Aircraft Flight Dynamics Analysis Platform
 
-A high-fidelity, web-based 6-DOF aircraft flight simulator built with **Next.js**, **React Three Fiber**, and **Tailwind CSS**.
+A backend-authoritative 6-DOF aircraft trim, linearization, and stability analysis platform built with **FastAPI (Python)** and **Next.js (React)**.
 
-## Features
+This system computes full rigid-body aircraft dynamics in the backend and presents engineering analysis results in a disciplined frontend interface. No physics is executed in the browser.
 
-### ✈️ High-Fidelity Physics
-- **6-DOF Rigid Body Dynamics**: Full simulation of forces and moments (Lift, Drag, Thrust, Gravity).
-- **Aerodynamic Model**: Configurable coefficients ($C_L$, $C_D$, $C_m$) based on Angle of Attack ($\alpha$) and Sideslip ($\beta$).
-- **Mass Properties**: Realistic inertia tensor and center of gravity management.
-- **Runge-Kutta 4** (or Euler) integration for stability.
+---
 
-### 🎮 Pilot Deck (HUD)
-- **Glass Cockpit UI**: Minimalist, HUD-style overlay maximizing the 3D view.
-- **Real-Time Telemetry**: Altitude, Airspeed, Heading, Attitude (Roll/Pitch).
-- **Control Interface**: Visualizers for Throttle, Elevator, Aileron, and Rudder inputs.
-- **Flight Modes**: 
-  - **Takeoff**: Runway scene with ground interaction.
-  - **Free Flight**: Open sky for maneuvering.
+## Core Capabilities
 
-### 📊 Estimation & EKF (Extended Kalman Filter)
-- **tier-1 Estimation**: Implementation of a 15-state EKF.
-- **Sensor Models**: Simulated GPS (Position) and IMU (Gyro/Accel) with configurable noise and bias.
-- **State Estimation**: Fuses noisy sensor data to estimate optimal state ($\hat{x}$).
-- **Analysis Page**: Real-time plotting of True State vs. Estimated State.
+- **Full 6-DOF Rigid Body Dynamics**  
+  Nonlinear force and moment coupling solved in Python.
 
-### 💨 Flow Visualization
-- **GPU Particles**: Custom shader-based particle system visualizing local airflow.
-- **Physics-Driven**: Particles react to True Airspeed, AoA ($\alpha$), and Sideslip ($\beta$).
+- **Trim Computation**  
+  Steady-state equilibrium solution for selected aircraft configuration.
 
-## Architecture
+- **Finite-Difference Linearization**  
+  Central-difference Jacobian of the full nonlinear model.
 
-### Tech Stack
-- **Frontend**: React 19, Next.js 14 (App Router)
-- **3D Rendering**: React Three Fiber (Three.js)
-- **Styling**: Tailwind CSS v4 ("Stealth" Palette)
-- **State Management**: Zustand (UI), Custom Singleton (Physics Core)
-- **Math**: mathjs (EKF Matrices), custom Vector/Quaternion lib.
+- **Eigenvalue Stability Analysis**  
+  Open-loop stability classification from the state matrix `A`.
 
-### System Design
-1.  **Simulation Core**: A frame-rate independent physics loop running at 100Hz (`SimulationEngine`).
-2.  **Visuals**: A decoupled rendering loop interpolating state snapshots for smooth 60fps+ animation (`SimulationManager` + `SimulationScene`).
-3.  **Estimation**: An independent observer loop running the EKF, correcting estimates based on Sensor outputs.
+- **Authoritative Aircraft Database (MVP)**  
+  - Cessna 172R — Conventional statically stable aircraft  
+  - F-16 Research Model — Relaxed static stability configuration  
+
+- **Hangar 3D Viewer**  
+  Visual reference only.  
+  No geometry, inertia, or physics are computed in the browser.
+
+---
+
+## Architectural Principles
+
+- All flight dynamics are computed in the backend (Python).
+- The frontend performs no physics, integration, or force/moment computation.
+- No client-side simulation state exists.
+- Aircraft parameters are authoritative from the backend database.
+- Stability classification is determined strictly from the eigenvalues of the linearized system.
+
+---
+
+## Stability Classification
+
+After trim and linearization, the aircraft configuration is classified as:
+
+- **Open-Loop Stable Configuration**  
+  All eigenvalues of the state matrix `A` have non-positive real parts.
+
+- **Relaxed / Unstable Configuration**  
+  At least one eigenvalue has a positive real part.
+
+This classification reflects the true open-loop dynamics of the 6-DOF model.
+
+---
+
+## Tech Stack
+
+### Backend
+- FastAPI (Python)
+- NumPy / SciPy (numerical methods)
+
+### Frontend
+- React 19
+- Next.js 14 (App Router)
+- Tailwind CSS v4 (engineering aesthetic)
+- React Three Fiber (Three.js) for static hangar visualization
+
+---
 
 ## Getting Started
 
-1.  **Install Dependencies**:
-    ```bash
-    npm install
-    ```
+### 1) Backend (FastAPI)
 
-2.  **Run Development Server**:
-    ```bash
-    npm run dev
-    ```
+From the project root:
 
-3.  **Open Simulator**:
-    Navigate to `http://localhost:3000`.
+```bash
+python -m venv venv
+venv\Scripts\activate   # Windows
+# source venv/bin/activate  # macOS/Linux
 
-## Key Files
-- `lib/simulation/physics/`: Core dynamics and aerodynamics.
-- `lib/simulation/estimation/`: EKF implementation and sensor models.
-- `components/pilot/PilotDeck.tsx`: Main HUD interface.
-- `components/simulation/visuals/FlowField.tsx`: GPU flow visualization.
+pip install -r requirements.txt
+
+python -m uvicorn aircraft_simulator.api.app:app --reload --port 8000 --app-dir .
+```
+
+Verify backend is running:
+
+```
+http://127.0.0.1:8000/docs
+```
+
+---
+
+### 2) Frontend (Next.js)
+
+From:
+
+```
+aircraft_simulator/frontend
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Create `frontend/.env.local`:
+
+```
+NEXT_PUBLIC_API_BASE=http://localhost:8000
+```
+
+Start dev server:
+
+```bash
+npm run dev
+```
+
+Open:
+
+```
+http://localhost:3000
+```
+
+---
+
+## Project Structure
+
+```
+aircraft_simulator/
+│
+├── api/
+│   └── app.py                 # FastAPI endpoints (select, trim, linearize)
+│
+├── sim/
+│   ├── aircraft/database.py   # Authoritative aircraft definitions
+│   ├── analysis/trim.py       # Trim computation
+│   ├── analysis/linearize.py  # Finite-difference Jacobian
+│   └── model.py               # Full 6-DOF nonlinear dynamics
+│
+└── frontend/
+    ├── app/                   # Next.js App Router pages
+    ├── context/               # AircraftContext (backend-driven state)
+    ├── lib/api/               # Backend API layer
+    └── components/            # UI components
+```
+
+---
+
+## MVP Scope
+
+The current MVP supports:
+
+* Aircraft selection (Cessna 172R, F-16)
+* Trim computation
+* Linearization
+* A-matrix display
+* Eigenvalue stability classification
+
+No control law synthesis, state estimation, or closed-loop augmentation are included in the base MVP.
+
+---
+
+## Troubleshooting
+
+### Backend import error
+
+`ModuleNotFoundError: No module named 'aircraft_simulator'`
+
+Ensure you are running uvicorn from the project root:
+
+```bash
+python -m uvicorn aircraft_simulator.api.app:app --reload --port 8000 --app-dir .
+```
+
+---
+
+### Frontend shows “Backend unavailable”
+
+Verify:
+
+1. Backend is running at:
+
+   ```
+   http://127.0.0.1:8000/docs
+   ```
+
+2. `frontend/.env.local` contains:
+
+   ```
+   NEXT_PUBLIC_API_BASE=http://localhost:8000
+   ```
+
+3. Restart the frontend dev server after editing `.env.local`.
+
+---
+
+### CORS errors in the browser console
+
+Ensure the FastAPI app includes CORS middleware and restart uvicorn.
+
+---
 
 ## License
+
 MIT
