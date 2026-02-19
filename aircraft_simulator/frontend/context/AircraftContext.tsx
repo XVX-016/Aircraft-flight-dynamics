@@ -85,7 +85,7 @@ function apiUrl(path: string) {
     return `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
-async function postJSON<T extends { error?: string }>(path: string, body: Record<string, unknown>): Promise<T> {
+async function postJSON<T>(path: string, body: Record<string, unknown>): Promise<T> {
     const res = await fetch(apiUrl(path), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -104,8 +104,9 @@ async function postJSON<T extends { error?: string }>(path: string, body: Record
         throw new Error("Backend unavailable");
     }
     const data = await res.json() as T;
-    if (data && typeof data === "object" && "error" in data && data.error) {
-        throw new Error(data.error);
+    const maybeError = data as { error?: string };
+    if (data && typeof data === "object" && maybeError.error) {
+        throw new Error(maybeError.error);
     }
     return data;
 }
@@ -235,3 +236,5 @@ export function useAircraftContext(): AircraftContextValue {
     if (!ctx) throw new Error("useAircraftContext must be used within <AircraftProvider>");
     return ctx;
 }
+
+
