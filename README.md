@@ -84,6 +84,8 @@ pip install -r requirements.txt
 python -m uvicorn aircraft_simulator.api.app:app --reload --port 8000 --app-dir .
 ```
 
+
+
 Verify backend is running:
 
 ```
@@ -172,7 +174,7 @@ No control law synthesis, state estimation, or closed-loop augmentation are incl
 Ensure you are running uvicorn from the project root:
 
 ```bash
-python -m uvicorn aircraft_simulator.api.app:app --reload --port 8000 --app-dir .
+python -m uvicorn api.app:app --reload --port 8000 --app-dir .
 ```
 
 ---

@@ -18,7 +18,7 @@ const Navigation = () => {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <nav className="fixed top-0 left-0 right-0 h-16 z-50 border-b border-white/5 bg-black md:bg-black/40 md:backdrop-blur-md">
+        <nav className="fixed top-0 left-0 right-0 h-16 z-50 border-b border-white/5 bg-black/40 backdrop-blur-md">
             <div className="max-w-[1400px] mx-auto h-full px-6 md:px-8 flex items-center justify-between">
 
                 {/* Brand */}
