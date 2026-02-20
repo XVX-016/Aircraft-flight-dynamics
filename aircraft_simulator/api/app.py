@@ -18,6 +18,7 @@ from aircraft_simulator.sim.aircraft.forces_moments import ActuatorLimits, force
 from aircraft_simulator.sim.aircraft.parameters import AircraftParameters
 from aircraft_simulator.sim.aircraft.database import get_aircraft_model
 from aircraft_simulator.sim.analysis.trim import compute_level_trim
+from aircraft_simulator.sim.analysis.modal_analysis import analyze_modal_structure
 from aircraft_simulator.sim.control.linearize import linearize
 from aircraft_simulator.sim.model import xdot_full
 from aircraft_simulator.sim.control.actuators import ActuatorState
@@ -331,6 +332,7 @@ def compute_linearization(payload: Dict[str, Any]) -> Dict[str, Any]:
     A, B = _linearize_full(trim.x0, trim.u0, params)
     eigvals = np.linalg.eigvals(A)
     eig_list = [{"real": float(ev.real), "imag": float(ev.imag)} for ev in eigvals]
+    modal = analyze_modal_structure(A).as_dict()
 
     if model.stability_mode == "relaxed":
         if not any(ev.real > 0.0 for ev in eigvals):
@@ -353,6 +355,7 @@ def compute_linearization(payload: Dict[str, Any]) -> Dict[str, Any]:
         "A": A.tolist(),
         "B": B.tolist(),
         "eigenvalues": eig_list,
+        "modal_analysis": modal,
     }
 
 @app.websocket("/ws")
