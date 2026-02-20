@@ -36,6 +36,40 @@ class ModalAnalysisResult:
         }
 
 
+def modal_table(
+    A: np.ndarray,
+    *,
+    imag_tol: float = 1e-8,
+) -> list[dict[str, int | float | str | bool | None]]:
+    """
+    Per-eigenvalue modal table with full-precision numeric fields.
+    """
+    A_d = _dynamic_submatrix(A)
+    eigvals, eigvecs = np.linalg.eig(A_d)
+    rows: list[dict[str, float | str | bool | None]] = []
+    for i, eig in enumerate(eigvals):
+        sigma = float(np.real(eig))
+        omega = float(np.imag(eig))
+        wn = float(np.hypot(sigma, omega))
+        zeta = None
+        if abs(omega) > imag_tol and wn > 1e-12:
+            zeta = float(-sigma / wn)
+        mode_type, family, _, _ = _classify_mode(eig, eigvecs[:, i], imag_tol=imag_tol)
+        rows.append(
+            {
+                "index": i,
+                "real": sigma,
+                "imag": omega,
+                "wn": wn,
+                "zeta": zeta,
+                "mode_type": mode_type,
+                "family": family,
+                "stable": sigma < 0.0,
+            }
+        )
+    return rows
+
+
 def _dynamic_submatrix(A: np.ndarray) -> np.ndarray:
     A = np.asarray(A, dtype=float)
     if A.shape == (12, 12):
