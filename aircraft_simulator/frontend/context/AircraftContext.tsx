@@ -78,19 +78,26 @@ interface AircraftContextValue extends AircraftContextState {
 
 const AircraftContext = createContext<AircraftContextValue | null>(null);
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const configuredApiBase = process.env.NEXT_PUBLIC_API_BASE?.trim();
+const API_BASE = configuredApiBase ? configuredApiBase.replace(/\/+$/, "") : "";
 
 function apiUrl(path: string) {
-    if (path.startsWith("http")) return path;
-    return `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    return API_BASE ? `${API_BASE}${normalizedPath}` : normalizedPath;
 }
 
 async function postJSON<T>(path: string, body: Record<string, unknown>): Promise<T> {
-    const res = await fetch(apiUrl(path), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+        res = await fetch(apiUrl(path), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+    } catch {
+        throw new Error("Backend unavailable. Configure NEXT_PUBLIC_API_BASE for production.");
+    }
     if (!res.ok) {
         const text = await res.text();
         if (text && text.toLowerCase().includes("<html")) {
