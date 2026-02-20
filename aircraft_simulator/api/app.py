@@ -17,7 +17,7 @@ from aircraft_simulator.sim.aircraft.aerodynamics import ControlInputs
 from aircraft_simulator.sim.aircraft.forces_moments import ActuatorLimits, forces_and_moments_body
 from aircraft_simulator.sim.aircraft.parameters import AircraftParameters
 from aircraft_simulator.sim.aircraft.database import get_aircraft_model
-from aircraft_simulator.sim.analysis.trim import compute_level_trim_guess
+from aircraft_simulator.sim.analysis.trim import compute_level_trim
 from aircraft_simulator.sim.control.linearize import linearize
 from aircraft_simulator.sim.model import xdot_full
 from aircraft_simulator.sim.control.actuators import ActuatorState
@@ -297,7 +297,10 @@ def select_aircraft(payload: Dict[str, Any]) -> Dict[str, Any]:
 def compute_trim(payload: Dict[str, Any]) -> Dict[str, Any]:
     V_mps = float(payload.get("V_mps", 60.0))
     params = runtime.params
-    trim = compute_level_trim_guess(V_mps, params)
+    try:
+        trim = compute_level_trim(V_mps, params, limits=runtime.limits)
+    except RuntimeError as exc:
+        return {"error": str(exc)}
 
     return {
         "aircraft_id": runtime.selected_aircraft_id,
@@ -305,9 +308,12 @@ def compute_trim(payload: Dict[str, Any]) -> Dict[str, Any]:
         "x0": trim.x0.tolist(),
         "u0": trim.u0.tolist(),
         "alpha_rad": trim.alpha,
+        "theta_rad": trim.theta,
         "throttle": trim.throttle,
         "elevator_rad": trim.elevator,
         "residual_norm": trim.residual_norm,
+        "solver_success": trim.success,
+        "solver_nfev": trim.nfev,
     }
 
 
@@ -317,12 +323,10 @@ def compute_linearization(payload: Dict[str, Any]) -> Dict[str, Any]:
     params = runtime.params
     model = get_aircraft_model(runtime.selected_aircraft_id)
 
-    trim = compute_level_trim_guess(V_mps, params)
-    if trim.residual_norm > 2.5:
-        return {
-            "error": "Trim residual too large for linearization.",
-            "residual_norm": trim.residual_norm,
-        }
+    try:
+        trim = compute_level_trim(V_mps, params, limits=runtime.limits)
+    except RuntimeError as exc:
+        return {"error": str(exc)}
 
     A, B = _linearize_full(trim.x0, trim.u0, params)
     eigvals = np.linalg.eigvals(A)
