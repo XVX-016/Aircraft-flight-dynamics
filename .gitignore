@@ -69,3 +69,7 @@ logs/
 **/public/models/
 **/public/hdri/
 **/public/textures/
+
+# Allow committed frontend 3D models for deployment
+!aircraft_simulator/frontend/public/models/
+!aircraft_simulator/frontend/public/models/**
