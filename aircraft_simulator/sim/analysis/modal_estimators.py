@@ -64,8 +64,30 @@ def extract_peak_series(
 
     # Use first 3 strong peaks to avoid late-time slow-mode contamination.
     peaks = peaks[:3]
-    t_peaks = tt[peaks]
-    x_peaks_abs = np.abs(xx[peaks])
+    y_abs = np.abs(xx)
+    t_peaks = []
+    x_peaks_abs = []
+    for idx in peaks:
+        if 0 < idx < (y_abs.size - 1):
+            y0 = float(y_abs[idx - 1])
+            y1 = float(y_abs[idx])
+            y2 = float(y_abs[idx + 1])
+            denom = (y0 - 2.0 * y1 + y2)
+            if abs(denom) > 1e-15:
+                delta = 0.5 * (y0 - y2) / denom
+                delta = float(np.clip(delta, -1.0, 1.0))
+                t_ref = float(tt[idx] + delta * dt)
+                y_ref = float(y1 - 0.25 * (y0 - y2) * delta)
+            else:
+                t_ref = float(tt[idx])
+                y_ref = float(y1)
+        else:
+            t_ref = float(tt[idx])
+            y_ref = float(y_abs[idx])
+        t_peaks.append(t_ref)
+        x_peaks_abs.append(max(1e-15, y_ref))
+    t_peaks = np.asarray(t_peaks, dtype=float)
+    x_peaks_abs = np.asarray(x_peaks_abs, dtype=float)
     # Strictly decreasing envelope for clean single-mode behavior.
     assert np.all(x_peaks_abs[1:] < x_peaks_abs[:-1])
 
