@@ -1,3 +1,2 @@
-from aircraft_simulator.sim.scenarios.scenario_runner import ScenarioEvent, ScenarioRunner
-
+from adcs_core.scenarios.__init__ import *
 
