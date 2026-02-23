@@ -4,6 +4,7 @@ import numpy as np
 
 from adcs_core.aircraft.parameters import AircraftParameters
 from adcs_core.state import State
+from adcs_core.state.state_definition import ANGLE_INDICES, POSITION_INDICES, RATE_INDICES, StateIndex, VELOCITY_INDICES
 
 
 def _wrap_angle(a: float) -> float:
@@ -92,10 +93,10 @@ def derivatives_6dof(
     omega_dot = Iinv @ (moments_b_Nm - np.cross(omega, I @ omega))
 
     dx = np.zeros(12, dtype=float)
-    dx[0:3] = vel_i
-    dx[3:6] = a_b
-    dx[6:9] = eul_dot
-    dx[9:12] = omega_dot
+    dx[np.asarray(POSITION_INDICES, dtype=int)] = vel_i
+    dx[np.asarray(VELOCITY_INDICES, dtype=int)] = a_b
+    dx[np.asarray(ANGLE_INDICES, dtype=int)] = eul_dot
+    dx[np.asarray(RATE_INDICES, dtype=int)] = omega_dot
 
     return dx
 
@@ -105,9 +106,9 @@ def post_step_sanitize(x: np.ndarray) -> np.ndarray:
     Keep Euler angles wrapped for nicer logs and to avoid unbounded growth.
     """
     y = np.array(x, dtype=float, copy=True)
-    y[6] = _wrap_angle(float(y[6]))
-    y[7] = _wrap_angle(float(y[7]))
-    y[8] = _wrap_angle(float(y[8]))
+    y[int(StateIndex.PHI)] = _wrap_angle(float(y[int(StateIndex.PHI)]))
+    y[int(StateIndex.THETA)] = _wrap_angle(float(y[int(StateIndex.THETA)]))
+    y[int(StateIndex.PSI)] = _wrap_angle(float(y[int(StateIndex.PSI)]))
     return y
 
 

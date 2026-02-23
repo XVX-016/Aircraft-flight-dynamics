@@ -12,6 +12,7 @@ from adcs_core.analysis.lqr_longitudinal import LONGITUDINAL_STATE_IDX_FULL
 from adcs_core.analysis.trim import TrimResult
 from adcs_core.dynamics.integrator import rk4_step
 from adcs_core.model import xdot_full
+from adcs_core.state.state_definition import ControlIndex, StateIndex
 
 
 @dataclass(frozen=True)
@@ -55,11 +56,11 @@ class UnstableGrowthEstimate:
 def _apply_alpha_perturbation(x_trim: np.ndarray, alpha_perturb_deg: float) -> np.ndarray:
     x0 = np.asarray(x_trim, dtype=float).copy()
     delta = float(np.deg2rad(alpha_perturb_deg))
-    V = float(np.hypot(x0[3], x0[5]))
-    alpha0 = float(np.arctan2(x0[5], x0[3]))
+    V = float(np.hypot(x0[int(StateIndex.U)], x0[int(StateIndex.W)]))
+    alpha0 = float(np.arctan2(x0[int(StateIndex.W)], x0[int(StateIndex.U)]))
     alpha1 = alpha0 + delta
-    x0[3] = V * np.cos(alpha1)
-    x0[5] = V * np.sin(alpha1)
+    x0[int(StateIndex.U)] = V * np.cos(alpha1)
+    x0[int(StateIndex.W)] = V * np.sin(alpha1)
     return x0
 
 
@@ -73,16 +74,22 @@ def _controller_from_state(
 ) -> ControlInputs:
     if K is None:
         return ControlInputs(
-            throttle=float(u_trim[0]),
+            throttle=float(u_trim[int(ControlIndex.THROTTLE)]),
             aileron=0.0,
-            elevator=float(u_trim[2]),
+            elevator=float(u_trim[int(ControlIndex.ELEVATOR)]),
             rudder=0.0,
         )
     x_sub = np.asarray(x, dtype=float)[LONGITUDINAL_STATE_IDX_FULL]
     x_ref = np.asarray(x_trim, dtype=float)[LONGITUDINAL_STATE_IDX_FULL]
     du = -np.asarray(K, dtype=float) @ (x_sub - x_ref)
-    de = float(np.clip(float(u_trim[2]) + float(du[0]), -limits.elevator_max_rad, limits.elevator_max_rad))
-    thr = float(np.clip(float(u_trim[0]) + float(du[1]), 0.0, 1.0))
+    de = float(
+        np.clip(
+            float(u_trim[int(ControlIndex.ELEVATOR)]) + float(du[0]),
+            -limits.elevator_max_rad,
+            limits.elevator_max_rad,
+        )
+    )
+    thr = float(np.clip(float(u_trim[int(ControlIndex.THROTTLE)]) + float(du[1]), 0.0, 1.0))
     return ControlInputs(throttle=thr, aileron=0.0, elevator=de, rudder=0.0)
 
 
@@ -221,9 +228,9 @@ def validate_modal_fidelity(
     )
 
     if signal == "q":
-        y = x_hist[:, 10]
+        y = x_hist[:, int(StateIndex.Q)]
     elif signal == "alpha":
-        y = np.arctan2(x_hist[:, 5], x_hist[:, 3])
+        y = np.arctan2(x_hist[:, int(StateIndex.W)], x_hist[:, int(StateIndex.U)])
     else:
         raise ValueError(f"Unsupported signal '{signal}'.")
 

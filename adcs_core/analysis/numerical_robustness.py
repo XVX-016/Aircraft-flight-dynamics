@@ -12,6 +12,7 @@ from adcs_core.analysis.modal_fidelity import linear_prediction_from_eigenvalue
 from adcs_core.analysis.trim import TrimResult
 from adcs_core.dynamics.integrator import rk4_step
 from adcs_core.model import xdot_full
+from adcs_core.state.state_definition import ControlIndex, StateIndex
 
 
 @dataclass(frozen=True)
@@ -72,10 +73,10 @@ def _relative_error_percent(value: float, ref: float) -> float:
 
 def _apply_alpha_perturbation(x_trim: np.ndarray, alpha_perturb_deg: float) -> np.ndarray:
     x = np.asarray(x_trim, dtype=float).copy()
-    V = float(np.hypot(x[3], x[5]))
-    alpha = float(np.arctan2(x[5], x[3]) + np.deg2rad(alpha_perturb_deg))
-    x[3] = V * np.cos(alpha)
-    x[5] = V * np.sin(alpha)
+    V = float(np.hypot(x[int(StateIndex.U)], x[int(StateIndex.W)]))
+    alpha = float(np.arctan2(x[int(StateIndex.W)], x[int(StateIndex.U)]) + np.deg2rad(alpha_perturb_deg))
+    x[int(StateIndex.U)] = V * np.cos(alpha)
+    x[int(StateIndex.W)] = V * np.sin(alpha)
     return x
 
 
@@ -95,20 +96,23 @@ def _simulate_signal(
 
     u_trim = np.asarray(trim.u0, dtype=float)
     ctrl = ControlInputs(
-        throttle=float(u_trim[0]),
+        throttle=float(u_trim[int(ControlIndex.THROTTLE)]),
         aileron=0.0,
-        elevator=float(u_trim[2]),
+        elevator=float(u_trim[int(ControlIndex.ELEVATOR)]),
         rudder=0.0,
     )
 
     y = np.zeros_like(t)
     for i, tt in enumerate(t):
         if signal == "w":
-            y[i] = float(x[5] - x0[5])
+            y[i] = float(x[int(StateIndex.W)] - x0[int(StateIndex.W)])
         elif signal == "q":
-            y[i] = float(x[10] - x0[10])
+            y[i] = float(x[int(StateIndex.Q)] - x0[int(StateIndex.Q)])
         elif signal == "alpha":
-            y[i] = float(np.arctan2(x[5], x[3]) - np.arctan2(x0[5], x0[3]))
+            y[i] = float(
+                np.arctan2(x[int(StateIndex.W)], x[int(StateIndex.U)])
+                - np.arctan2(x0[int(StateIndex.W)], x0[int(StateIndex.U)])
+            )
         else:
             raise ValueError(f"Unsupported signal '{signal}'")
         if i < t.size - 1:

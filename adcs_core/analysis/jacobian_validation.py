@@ -9,6 +9,7 @@ from adcs_core.aircraft.forces_moments import ActuatorLimits
 from adcs_core.aircraft.parameters import AircraftParameters
 from adcs_core.control.linearize import linearize
 from adcs_core.model import xdot_full
+from adcs_core.state.state_definition import ControlIndex
 
 
 @dataclass(frozen=True)
@@ -27,10 +28,10 @@ def _xdot_from_vectors(
     limits: ActuatorLimits,
 ) -> np.ndarray:
     ctrl = ControlInputs(
-        throttle=float(u_vec[0]),
-        aileron=float(u_vec[1]),
-        elevator=float(u_vec[2]),
-        rudder=float(u_vec[3]),
+        throttle=float(u_vec[int(ControlIndex.THROTTLE)]),
+        aileron=float(u_vec[int(ControlIndex.AILERON)]),
+        elevator=float(u_vec[int(ControlIndex.ELEVATOR)]),
+        rudder=float(u_vec[int(ControlIndex.RUDDER)]),
     )
     return xdot_full(np.asarray(x, dtype=float), ctrl, params=params, limits=limits)
 

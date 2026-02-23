@@ -10,6 +10,7 @@ from adcs_core.aircraft.aerodynamics import ControlInputs
 from adcs_core.aircraft.parameters import AircraftParameters, qbar
 from adcs_core.control.linearize import linearize, select_subsystem
 from adcs_core.model import xdot_full
+from adcs_core.state.state_definition import ControlIndex, StateIndex
 
 
 def lqr(A: np.ndarray, B: np.ndarray, Q: np.ndarray, R: np.ndarray) -> np.ndarray:
@@ -68,10 +69,10 @@ def linearize_aircraft(
 
     def f(x: np.ndarray, u_vec: np.ndarray) -> np.ndarray:
         ctrl = ControlInputs(
-            throttle=float(u_vec[0]),
-            aileron=float(u_vec[1]),
-            elevator=float(u_vec[2]),
-            rudder=float(u_vec[3]),
+            throttle=float(u_vec[int(ControlIndex.THROTTLE)]),
+            aileron=float(u_vec[int(ControlIndex.AILERON)]),
+            elevator=float(u_vec[int(ControlIndex.ELEVATOR)]),
+            rudder=float(u_vec[int(ControlIndex.RUDDER)]),
         )
         return xdot_full(x, ctrl, params=params)
 
@@ -81,8 +82,8 @@ def linearize_aircraft(
         return A, B
 
     # Indices in full state/input vectors.
-    state_idx = [3, 5, 10, 7]  # u, w, q, theta
-    input_idx = [2]            # elevator
+    state_idx = [int(StateIndex.U), int(StateIndex.W), int(StateIndex.Q), int(StateIndex.THETA)]
+    input_idx = [int(ControlIndex.ELEVATOR)]
     return select_subsystem(A, B, state_idx=state_idx, input_idx=input_idx)
 
 
