@@ -7,7 +7,7 @@ import numpy as np
 from adcs_core.aircraft.aerodynamics import ControlInputs
 from adcs_core.aircraft.forces_moments import ActuatorLimits
 from adcs_core.aircraft.parameters import AircraftParameters
-from adcs_core.control.linearize import linearize
+from adcs_core.dynamics.linearize import linearize
 from adcs_core.model import xdot_full
 from adcs_core.state.state_definition import ControlIndex
 
