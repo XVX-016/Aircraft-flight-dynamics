@@ -9,6 +9,7 @@ from adcs_core.aircraft.aerodynamics import ControlInputs
 from adcs_core.aircraft.forces_moments import ActuatorLimits
 from adcs_core.aircraft.parameters import AircraftParameters, qbar
 from adcs_core.model import xdot_full
+from adcs_core.state.state_definition import ControlIndex, StateIndex
 
 
 @dataclass(frozen=True)
@@ -49,14 +50,20 @@ def _compute_level_trim_quasi_guess(V_mps: float, params: AircraftParameters) ->
     # [x, y, z, u, v, w, phi, theta, psi, p, q, r]
     u = V * np.cos(alpha)
     w = V * np.sin(alpha)
-    x0 = np.array([0.0, 0.0, -1000.0, u, 0.0, w, 0.0, alpha, 0.0, 0.0, 0.0, 0.0], dtype=float)
+    x0 = np.zeros(12, dtype=float)
+    x0[int(StateIndex.Z)] = -1000.0
+    x0[int(StateIndex.U)] = u
+    x0[int(StateIndex.W)] = w
+    x0[int(StateIndex.THETA)] = alpha
 
     # [throttle, aileron, elevator, rudder]
-    u0 = np.array([throttle, 0.0, de, 0.0], dtype=float)
+    u0 = np.zeros(4, dtype=float)
+    u0[int(ControlIndex.THROTTLE)] = throttle
+    u0[int(ControlIndex.ELEVATOR)] = de
     ctrl = ControlInputs(throttle=throttle, aileron=0.0, elevator=de, rudder=0.0)
     residual = xdot_full(x0, ctrl, params=params)
     # Ignore inertial position kinematics (dx,dy,dz); focus on dynamic equilibrium.
-    residual_norm = float(np.linalg.norm(residual[3:12]))
+    residual_norm = float(np.linalg.norm(residual[int(StateIndex.U):]))
 
     return TrimResult(
         x0=x0,
@@ -125,9 +132,9 @@ def compute_level_trim(
 
         # [x, y, z, u, v, w, phi, theta, psi, p, q, r]
         x = np.zeros(12, dtype=float)
-        x[3] = u
-        x[5] = w
-        x[7] = theta
+        x[int(StateIndex.U)] = u
+        x[int(StateIndex.W)] = w
+        x[int(StateIndex.THETA)] = theta
 
         ctrl = ControlInputs(
             throttle=throttle,
@@ -140,9 +147,9 @@ def compute_level_trim(
         # u_dot, w_dot, q_dot, gamma=theta-alpha (level flight)
         return np.array(
             [
-                xdot[3],
-                xdot[5],
-                xdot[10],
+                xdot[int(StateIndex.U)],
+                xdot[int(StateIndex.W)],
+                xdot[int(StateIndex.Q)],
                 theta - alpha,
             ],
             dtype=float,
@@ -162,10 +169,12 @@ def compute_level_trim(
     u = V * np.cos(alpha)
     w = V * np.sin(alpha)
     x0 = np.zeros(12, dtype=float)
-    x0[3] = u
-    x0[5] = w
-    x0[7] = theta
-    u0 = np.array([throttle, 0.0, de, 0.0], dtype=float)
+    x0[int(StateIndex.U)] = u
+    x0[int(StateIndex.W)] = w
+    x0[int(StateIndex.THETA)] = theta
+    u0 = np.zeros(4, dtype=float)
+    u0[int(ControlIndex.THROTTLE)] = throttle
+    u0[int(ControlIndex.ELEVATOR)] = de
     residual_norm = float(np.linalg.norm(sol.fun))
 
     if residual_norm > residual_tol:

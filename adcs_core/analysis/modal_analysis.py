@@ -4,6 +4,8 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 
+from adcs_core.state.state_definition import DynamicStateIndex
+
 
 @dataclass(frozen=True)
 class ModeSummary:
@@ -86,8 +88,25 @@ def _classify_mode(
     imag_tol: float,
 ) -> tuple[str, str, float | None, float | None]:
     # Dynamic-state ordering in A_d is [u, v, w, phi, theta, psi, p, q, r].
-    long_idx = np.array([0, 2, 4, 7], dtype=int)   # u, w, theta, q
-    lat_idx = np.array([1, 3, 5, 6, 8], dtype=int) # v, phi, psi, p, r
+    long_idx = np.array(
+        [
+            int(DynamicStateIndex.U),
+            int(DynamicStateIndex.W),
+            int(DynamicStateIndex.THETA),
+            int(DynamicStateIndex.Q),
+        ],
+        dtype=int,
+    )
+    lat_idx = np.array(
+        [
+            int(DynamicStateIndex.V),
+            int(DynamicStateIndex.PHI),
+            int(DynamicStateIndex.PSI),
+            int(DynamicStateIndex.P),
+            int(DynamicStateIndex.R),
+        ],
+        dtype=int,
+    )
 
     mag2 = np.abs(vec) ** 2
     long_energy = float(np.sum(mag2[long_idx]))

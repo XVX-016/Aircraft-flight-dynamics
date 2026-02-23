@@ -11,10 +11,19 @@ from adcs_core.aircraft.parameters import AircraftParameters
 from adcs_core.analysis.trim import TrimResult
 from adcs_core.dynamics.integrator import rk4_step
 from adcs_core.model import xdot_full
+from adcs_core.state.state_definition import ControlIndex, StateIndex
 
 
-LONGITUDINAL_STATE_IDX_FULL = [3, 5, 10, 7]  # [u, w, q, theta]
-LONGITUDINAL_INPUT_IDX_FULL = [2, 0]         # [elevator, throttle]
+LONGITUDINAL_STATE_IDX_FULL = [
+    int(StateIndex.U),
+    int(StateIndex.W),
+    int(StateIndex.Q),
+    int(StateIndex.THETA),
+]
+LONGITUDINAL_INPUT_IDX_FULL = [
+    int(ControlIndex.ELEVATOR),
+    int(ControlIndex.THROTTLE),
+]
 
 
 @dataclass(frozen=True)
