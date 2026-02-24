@@ -1,5 +1,7 @@
 "use client";
 
+import { ModeTable } from "@/components/analysis/ModeTable";
+import { StabilityOverview } from "@/components/analysis/StabilityOverview";
 import { useAircraftContext } from "@/context/AircraftContext";
 
 export default function EstimationPage() {
@@ -17,7 +19,7 @@ export default function EstimationPage() {
             <div className="max-w-[1400px] mx-auto">
                 <header className="mb-12 border-b border-white/5 pb-6">
                     <h1 className="text-xs font-mono tracking-[0.4em] text-white/40 uppercase mb-2">Estimation</h1>
-                    <h2 className="text-3xl font-bold text-white tracking-tight">Backend-Derived Stability Summary</h2>
+                    <h2 className="text-3xl font-bold text-white tracking-tight">Estimator & Modal Summary</h2>
                 </header>
 
                 {error && (
@@ -39,18 +41,31 @@ export default function EstimationPage() {
                 )}
 
                 {eigenvalues.length > 0 && (
-                    <div className="hud-panel p-4 border border-white/10 bg-white/[0.02] rounded-lg">
-                        <div className="text-[10px] uppercase text-white/40 mb-2">Eigenvalues</div>
-                        <div className="grid grid-cols-2 gap-2 text-xs font-mono text-white/70">
-                            {eigenvalues.map((ev, idx) => (
-                                <div key={idx} className={eigenClass(ev.real)}>
-                                    {ev.real.toFixed(3)} {ev.imag >= 0 ? "+" : "-"} {Math.abs(ev.imag).toFixed(3)}i
-                                </div>
-                            ))}
+                    <div className="space-y-6">
+                        <StabilityOverview modal={computed.modalAnalysis} />
+                        <ModeTable modes={computed.modalAnalysis?.modes} />
+
+                        <div className="hud-panel p-4 border border-white/10 bg-white/[0.02] rounded-lg">
+                            <div className="text-[10px] uppercase text-white/40 mb-2">Estimator Consistency</div>
+                            <div className="text-xs font-mono text-white/60">
+                                Estimator-invariance metrics are validated in the backend test pipeline. Live endpoint exposure is pending.
+                            </div>
                         </div>
+
+                        <details className="hud-panel p-4 border border-white/10 bg-white/[0.02] rounded-lg">
+                            <summary className="text-[10px] uppercase text-white/40 cursor-pointer">Advanced: Raw Eigenvalues</summary>
+                            <div className="grid grid-cols-2 gap-2 text-xs font-mono text-white/70 mt-3">
+                                {eigenvalues.map((ev, idx) => (
+                                    <div key={idx} className={eigenClass(ev.real)}>
+                                        {ev.real.toFixed(4)} {ev.imag >= 0 ? "+" : "-"} {Math.abs(ev.imag).toFixed(4)}i
+                                    </div>
+                                ))}
+                            </div>
+                        </details>
                     </div>
                 )}
             </div>
         </div>
     );
 }
+

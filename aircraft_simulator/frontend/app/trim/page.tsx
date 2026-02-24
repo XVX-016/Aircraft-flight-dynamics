@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { Activity, Cpu } from "lucide-react";
 import { useAircraftContext } from "@/context/AircraftContext";
+import { StabilityOverview } from "@/components/analysis/StabilityOverview";
+import { ModeTable } from "@/components/analysis/ModeTable";
+import { SpectralPlot } from "@/components/analysis/SpectralPlot";
 
 export default function TrimPage() {
     const { selectedAircraftId, flightCondition, setFlightCondition, setAircraft, computed, loading, error } = useAircraftContext();
@@ -15,7 +18,6 @@ export default function TrimPage() {
 
     const hasResults = Boolean(computed.A && computed.eigenvalues);
     const eigenvalues = computed.eigenvalues ?? [];
-    const unstable = eigenvalues.some((ev) => ev.real > 0);
     const eigenClass = (real: number) => {
         if (Math.abs(real) < 1e-4) return "text-white/50";
         if (real > 0) return "text-amber-300";
@@ -89,10 +91,16 @@ export default function TrimPage() {
                     </div>
 
                     <div className="lg:col-span-8 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                             <div className="hud-panel p-4 border border-white/10 bg-white/[0.02] rounded-lg">
                                 <span className="block text-[10px] text-white/30 uppercase mb-1">Alpha (rad)</span>
                                 <span className="text-xl font-mono text-white">{computed.trim ? computed.trim.alpha_rad.toFixed(4) : "--"}</span>
+                            </div>
+                            <div className="hud-panel p-4 border border-white/10 bg-white/[0.02] rounded-lg">
+                                <span className="block text-[10px] text-white/30 uppercase mb-1">Theta (rad)</span>
+                                <span className="text-xl font-mono text-white">
+                                    {computed.trim?.theta_rad !== undefined ? computed.trim.theta_rad.toFixed(4) : "--"}
+                                </span>
                             </div>
                             <div className="hud-panel p-4 border border-white/10 bg-white/[0.02] rounded-lg">
                                 <span className="block text-[10px] text-white/30 uppercase mb-1">Elevator (rad)</span>
@@ -102,54 +110,31 @@ export default function TrimPage() {
                                 <span className="block text-[10px] text-white/30 uppercase mb-1">Throttle</span>
                                 <span className="text-xl font-mono text-white">{computed.trim ? computed.trim.throttle.toFixed(3) : "--"}</span>
                             </div>
+                            <div className="hud-panel p-4 border border-white/10 bg-white/[0.02] rounded-lg">
+                                <span className="block text-[10px] text-white/30 uppercase mb-1">Residual Norm</span>
+                                <span className="text-xl font-mono text-white">
+                                    {computed.trim ? computed.trim.residual_norm.toExponential(2) : "--"}
+                                </span>
+                            </div>
                         </div>
 
-                        <div className="hud-panel p-6 border border-white/10 bg-white/[0.02] rounded-xl flex-1 min-h-[400px]">
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="flex items-center gap-2 text-white/70">
-                                    <Activity className="w-4 h-4" />
-                                    <h3 className="text-xs font-mono uppercase tracking-widest">System Dynamics Matrix (A)</h3>
-                                </div>
-                                <span className="text-[10px] font-mono text-white/30">Backend linearization</span>
-                            </div>
+                        {hasResults && <StabilityOverview modal={computed.modalAnalysis} />}
 
-                            <div className="relative w-full h-64 border border-white/5 bg-black/40 rounded flex items-center justify-center overflow-hidden">
-                                {hasResults ? (
-                                    <div className="font-mono text-[10px] text-white/60 whitespace-pre">
-                                        A[0..2][0..2] = {JSON.stringify(computed.A?.slice(0, 3).map((r) => r.slice(0, 3)))}
-                                    </div>
-                                ) : (
-                                    <span className="text-xs text-white/30 font-mono uppercase tracking-widest">
-                                        Awaiting backend results
-                                    </span>
-                                )}
-                            </div>
+                        {hasResults && <ModeTable modes={computed.modalAnalysis?.modes} />}
 
-                            {hasResults && (
-                                <div className="mt-6 p-3 border-l-2 border-white/20 bg-white/5">
-                                    <div className={`text-xs font-mono uppercase ${unstable ? "text-amber-300" : "text-white/70"}`}>
-                                        {unstable ? "Relaxed / Unstable Configuration" : "Open-Loop Stable Configuration"}
-                                    </div>
-                                    <div className="text-[10px] font-mono text-white/50 mt-1">
-                                        {unstable
-                                            ? "Open-loop instability detected. Control augmentation required."
-                                            : "All dynamic modes stable at current trim condition."}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        {hasResults && <SpectralPlot openLoop={eigenvalues} title="Open-Loop Spectrum" />}
 
                         {hasResults && (
-                            <div className="hud-panel p-4 border border-white/10 bg-white/[0.02] rounded-lg">
-                                <div className="text-[10px] uppercase text-white/40 mb-2">Eigenvalues</div>
-                                <div className="grid grid-cols-2 gap-2 text-xs font-mono text-white/70">
+                            <details className="hud-panel p-4 border border-white/10 bg-white/[0.02] rounded-lg">
+                                <summary className="text-[10px] uppercase text-white/40 cursor-pointer">Advanced: Raw Eigenvalues</summary>
+                                <div className="grid grid-cols-2 gap-2 text-xs font-mono text-white/70 mt-3">
                                     {eigenvalues.map((ev, idx) => (
                                         <div key={idx} className={eigenClass(ev.real)}>
-                                            {ev.real.toFixed(3)} {ev.imag >= 0 ? "+" : "-"} {Math.abs(ev.imag).toFixed(3)}i
+                                            {ev.real.toFixed(4)} {ev.imag >= 0 ? "+" : "-"} {Math.abs(ev.imag).toFixed(4)}i
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </details>
                         )}
                     </div>
                 </div>

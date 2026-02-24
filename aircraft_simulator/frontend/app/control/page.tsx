@@ -1,6 +1,9 @@
 "use client";
 
 import { useAircraftContext } from "@/context/AircraftContext";
+import { ModeTable } from "@/components/analysis/ModeTable";
+import { SpectralPlot } from "@/components/analysis/SpectralPlot";
+import { StabilityOverview } from "@/components/analysis/StabilityOverview";
 
 export default function ControlPage() {
     const { computed, loading, error } = useAircraftContext();
@@ -35,14 +38,18 @@ export default function ControlPage() {
                 )}
 
                 {eigenvalues.length > 0 && (
-                    <div className="hud-panel p-6 border border-white/10 bg-white/[0.02]">
-                        <div className={`text-xs font-mono uppercase ${unstable ? "text-amber-300" : "text-white/70"}`}>
-                            {unstable ? "Relaxed / Unstable Configuration" : "Open-Loop Stable Configuration"}
-                        </div>
-                        <div className="text-[10px] font-mono text-white/50 mt-1">
-                            {unstable
-                                ? "Open-loop instability detected. Control augmentation required."
-                                : "All dynamic modes stable at current trim condition."}
+                    <div className="space-y-6">
+                        <StabilityOverview modal={computed.modalAnalysis} />
+                        <SpectralPlot openLoop={eigenvalues} title="Open-Loop Spectrum" />
+                        <ModeTable modes={computed.modalAnalysis?.modes} />
+                        <div className="hud-panel p-4 border border-white/10 bg-white/[0.02] rounded-lg">
+                            <div className="text-[10px] uppercase text-white/40 mb-2">Closed-Loop Comparison</div>
+                            <div className="text-xs font-mono text-white/60">
+                                Closed-loop spectral shift will be shown when backend exposes an `LQR` comparison endpoint.
+                            </div>
+                            <div className={`text-[10px] font-mono mt-2 ${unstable ? "text-amber-300" : "text-emerald-300"}`}>
+                                Current open-loop classification: {unstable ? "Unstable / Relaxed" : "Stable"}
+                            </div>
                         </div>
                     </div>
                 )}
