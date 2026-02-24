@@ -1,126 +1,285 @@
 from __future__ import annotations
 
-# Allow running as: python scripts\generate_artifacts.py from aircraft_simulator/
+import argparse
 import os
 import sys
+from dataclasses import asdict
 
-_HERE = os.path.dirname(__file__)
-_ROOT = os.path.abspath(os.path.join(_HERE, ".."))
-if _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
-
-import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from adcs_core.aircraft.aerodynamics import ControlInputs
-from adcs_core.control.linearize import linearize, select_subsystem
-from adcs_core.control.lqr import lqr
-from adcs_core.model import xdot_full
-from adcs_core.state import State
-from adcs_core.simulator import run
-from adcs_core.control.autopilot import AutopilotTargets
-from adcs_core.analysis.metrics import step_response_metrics
+# Allow running as: python aircraft_simulator/scripts/generate_artifacts.py
+_HERE = os.path.dirname(__file__)
+_ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
+from adcs_core.api import (  # noqa: E402
+    ControlIndex,
+    ControlInputs,
+    StateIndex,
+    analyze_modal_structure,
+    compute_level_trim,
+    design_longitudinal_lqr,
+    get_aircraft_model,
+    linearize,
+    rk4_step,
+    xdot_full,
+)
+
+
+def _linearize_at_trim(aircraft_id: str, speed_mps: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, object]:
+    model = get_aircraft_model(aircraft_id)
+    trim = compute_level_trim(speed_mps, model.params, limits=model.limits)
+
+    def f(x: np.ndarray, u_vec: np.ndarray) -> np.ndarray:
+        ctrl = ControlInputs(
+            throttle=float(u_vec[int(ControlIndex.THROTTLE)]),
+            aileron=float(u_vec[int(ControlIndex.AILERON)]),
+            elevator=float(u_vec[int(ControlIndex.ELEVATOR)]),
+            rudder=float(u_vec[int(ControlIndex.RUDDER)]),
+        )
+        return xdot_full(x, ctrl, params=model.params, limits=model.limits)
+
+    A, B = linearize(f, trim.x0, trim.u0)
+    return A, B, np.asarray(trim.x0, dtype=float), np.asarray(trim.u0, dtype=float), model
+
+
+def _apply_alpha_perturbation(x_trim: np.ndarray, alpha_perturb_deg: float) -> np.ndarray:
+    x0 = np.asarray(x_trim, dtype=float).copy()
+    alpha0 = float(np.arctan2(x0[int(StateIndex.W)], x0[int(StateIndex.U)]))
+    vmag = float(np.hypot(x0[int(StateIndex.U)], x0[int(StateIndex.W)]))
+    alpha1 = alpha0 + np.deg2rad(alpha_perturb_deg)
+    x0[int(StateIndex.U)] = vmag * np.cos(alpha1)
+    x0[int(StateIndex.W)] = vmag * np.sin(alpha1)
+    return x0
+
+
+def _simulate_response(
+    *,
+    model,
+    x_trim: np.ndarray,
+    u_trim: np.ndarray,
+    K: np.ndarray | None,
+    tfinal_s: float,
+    dt_s: float,
+    alpha_perturb_deg: float,
+) -> dict[str, np.ndarray]:
+    t = np.arange(0.0, tfinal_s + 0.5 * dt_s, dt_s)
+    x = _apply_alpha_perturbation(x_trim, alpha_perturb_deg=alpha_perturb_deg)
+
+    idx_lon = np.array(
+        [
+            int(StateIndex.U),
+            int(StateIndex.W),
+            int(StateIndex.Q),
+            int(StateIndex.THETA),
+        ],
+        dtype=int,
+    )
+
+    x_hist = np.zeros((t.size, 12), dtype=float)
+    err_hist = np.zeros(t.size, dtype=float)
+    de_hist = np.zeros(t.size, dtype=float)
+    thr_hist = np.zeros(t.size, dtype=float)
+
+    def f_dyn(tt: float, xx: np.ndarray) -> np.ndarray:
+        if K is None:
+            de = float(u_trim[int(ControlIndex.ELEVATOR)])
+            thr = float(u_trim[int(ControlIndex.THROTTLE)])
+        else:
+            x_sub = xx[idx_lon]
+            x_ref = x_trim[idx_lon]
+            du = -K @ (x_sub - x_ref)
+            de = float(
+                np.clip(
+                    u_trim[int(ControlIndex.ELEVATOR)] + float(du[0]),
+                    -model.limits.elevator_max_rad,
+                    model.limits.elevator_max_rad,
+                )
+            )
+            thr = float(np.clip(u_trim[int(ControlIndex.THROTTLE)] + float(du[1]), 0.0, 1.0))
+
+        ctrl = ControlInputs(throttle=thr, aileron=0.0, elevator=de, rudder=0.0)
+        return xdot_full(xx, ctrl, params=model.params, limits=model.limits)
+
+    for i, tt in enumerate(t):
+        x_hist[i] = x
+        err_hist[i] = float(np.linalg.norm(x[idx_lon] - x_trim[idx_lon]))
+        if K is None:
+            de_hist[i] = float(u_trim[int(ControlIndex.ELEVATOR)])
+            thr_hist[i] = float(u_trim[int(ControlIndex.THROTTLE)])
+        else:
+            x_sub = x[idx_lon]
+            x_ref = x_trim[idx_lon]
+            du = -K @ (x_sub - x_ref)
+            de_hist[i] = float(
+                np.clip(
+                    u_trim[int(ControlIndex.ELEVATOR)] + float(du[0]),
+                    -model.limits.elevator_max_rad,
+                    model.limits.elevator_max_rad,
+                )
+            )
+            thr_hist[i] = float(np.clip(u_trim[int(ControlIndex.THROTTLE)] + float(du[1]), 0.0, 1.0))
+
+        if i < t.size - 1:
+            x = rk4_step(f_dyn, float(tt), x, dt_s)
+
+    return {
+        "t": t,
+        "x": x_hist,
+        "err": err_hist,
+        "de": de_hist,
+        "thr": thr_hist,
+    }
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Generate proof artifacts (plots + metrics) for portfolio.")
-    p.add_argument("--outdir", default="plots", help="output directory for PNGs")
-    p.add_argument("--seed", type=int, default=3)
-    args = p.parse_args()
+    parser = argparse.ArgumentParser(description="Generate report-ready control artifacts (trim-first pipeline).")
+    parser.add_argument("--aircraft-id", default="cessna_172r")
+    parser.add_argument("--speed-mps", type=float, default=60.0)
+    parser.add_argument("--outdir", default="aircraft_simulator/plots/phase_report")
+    parser.add_argument("--tfinal-s", type=float, default=8.0)
+    parser.add_argument("--dt-s", type=float, default=0.01)
+    parser.add_argument("--alpha-perturb-deg", type=float, default=0.5)
+    args = parser.parse_args()
 
     os.makedirs(args.outdir, exist_ok=True)
 
-    # --- Linearization around a reasonable operating point (not a full trim solver yet) ---
-    s0 = State(x=0.0, y=0.0, z=-1000.0, u=35.0, v=0.0, w=0.0, phi=0.0, theta=0.0, psi=0.0, p=0.0, q=0.0, r=0.0)
-    x0 = s0.as_vector()
-    u0 = np.array([0.5, 0.0, 0.0, 0.0], dtype=float)  # [throttle, aileron, elevator, rudder]
+    A, B, x_trim, u_trim, model = _linearize_at_trim(args.aircraft_id, args.speed_mps)
+    eig_open = np.linalg.eigvals(A)
+    modal = analyze_modal_structure(A)
+    lqr_design = design_longitudinal_lqr(A, B)
+    eig_closed_lon = lqr_design.closed_loop_eigenvalues
 
-    def f(x: np.ndarray, uvec: np.ndarray) -> np.ndarray:
-        u = ControlInputs(throttle=float(uvec[0]), aileron=float(uvec[1]), elevator=float(uvec[2]), rudder=float(uvec[3]))
-        return xdot_full(x, u)
+    open_sim = _simulate_response(
+        model=model,
+        x_trim=x_trim,
+        u_trim=u_trim,
+        K=None,
+        tfinal_s=args.tfinal_s,
+        dt_s=args.dt_s,
+        alpha_perturb_deg=args.alpha_perturb_deg,
+    )
+    closed_sim = _simulate_response(
+        model=model,
+        x_trim=x_trim,
+        u_trim=u_trim,
+        K=np.asarray(lqr_design.K, dtype=float),
+        tfinal_s=args.tfinal_s,
+        dt_s=args.dt_s,
+        alpha_perturb_deg=args.alpha_perturb_deg,
+    )
 
-    A, B = linearize(f, x0, u0, eps_x=1e-4, eps_u=1e-4)
-
-    eigA = np.linalg.eigvals(A)
+    # Plots
     plt.figure(figsize=(6, 5))
-    plt.scatter(eigA.real, eigA.imag, s=16)
-    plt.axvline(0, color="k", linewidth=1, alpha=0.4)
+    plt.scatter(eig_open.real, eig_open.imag, s=18, label="open-loop")
+    plt.axvline(0.0, color="k", linewidth=1, alpha=0.35)
     plt.grid(True, alpha=0.25)
-    plt.title("Open-loop eigenvalues (full 12-state linearization)")
     plt.xlabel("Re")
     plt.ylabel("Im")
+    plt.title("Open-Loop Eigenvalues (Full Linearized System)")
     plt.tight_layout()
     plt.savefig(os.path.join(args.outdir, "eigs_open_loop.png"), dpi=150)
     plt.close()
 
-    # --- Reduced longitudinal subsystem example: x=[u,w,q,theta], u=[elevator, throttle] ---
-    # full state indices: [x,y,z,u,v,w,phi,theta,psi,p,q,r]
-    idx_u = 3
-    idx_w = 5
-    idx_theta = 7
-    idx_q = 10
-    state_idx = [idx_u, idx_w, idx_q, idx_theta]
-    # control indices into u0: [throttle, aileron, elevator, rudder]
-    input_idx = [2, 0]  # elevator, throttle
-    A_lon, B_lon = select_subsystem(A, B, state_idx=state_idx, input_idx=input_idx)
-
-    # LQR weights (tunable); these produce a usable stabilizer for demo purposes
-    Q = np.diag([2.0, 8.0, 10.0, 25.0])
-    R = np.diag([2.0, 1.0])
-    try:
-        K, _, E = lqr(A_lon, B_lon, Q, R)
-        plt.figure(figsize=(6, 5))
-        plt.scatter(E.real, E.imag, s=20)
-        plt.axvline(0, color="k", linewidth=1, alpha=0.4)
-        plt.grid(True, alpha=0.25)
-        plt.title("Closed-loop eigenvalues (longitudinal LQR demo)")
-        plt.xlabel("Re")
-        plt.ylabel("Im")
-        plt.tight_layout()
-        plt.savefig(os.path.join(args.outdir, "eigs_lqr_longitudinal.png"), dpi=150)
-        plt.close()
-    except RuntimeError:
-        # python-control not installed; still generate open-loop artifacts
-        K = None
-
-    # --- Step response artifacts using the full nonlinear sim (truth logs + metrics) ---
-    out_path, _ = run(
-        tfinal=15.0,
-        dt=0.02,
-        autopilot_enabled=True,
-        targets=AutopilotTargets(airspeed_mps=35.0, altitude_m=1100.0, heading_rad=0.0),
-        actuator_tau=0.15,
-        seed=args.seed,
-        wind_ned_mps=(0.0, 0.0, 0.0),
-    )
-    df = pd.read_csv(out_path)
-
-    m = step_response_metrics(df["t"], df["truth_altitude_m"], y_target=1100.0)
-    metrics_path = os.path.join(args.outdir, "metrics.txt")
-    with open(metrics_path, "w", encoding="utf8") as f:
-        f.write("Altitude step metrics (truth_altitude_m -> 1100 m)\n")
-        f.write(f"overshoot_frac: {m.overshoot_frac}\n")
-        f.write(f"rise_time_s: {m.rise_time_s}\n")
-        f.write(f"settling_time_s: {m.settling_time_s}\n")
-
-    plt.figure(figsize=(9, 4))
-    plt.plot(df["t"], df["truth_altitude_m"], label="truth altitude")
-    plt.axhline(1100.0, color="k", linewidth=1, alpha=0.35, linestyle="--", label="target")
+    plt.figure(figsize=(6, 5))
+    plt.scatter(eig_closed_lon.real, eig_closed_lon.imag, s=18, label="closed-loop longitudinal")
+    plt.axvline(0.0, color="k", linewidth=1, alpha=0.35)
     plt.grid(True, alpha=0.25)
-    plt.xlabel("t [s]")
-    plt.ylabel("Altitude [m]")
-    plt.title("Altitude step response (Phase 5 proof artifact)")
-    plt.legend()
+    plt.xlabel("Re")
+    plt.ylabel("Im")
+    plt.title("Closed-Loop Eigenvalues (Longitudinal LQR)")
     plt.tight_layout()
-    plt.savefig(os.path.join(args.outdir, "altitude_step_response.png"), dpi=150)
+    plt.savefig(os.path.join(args.outdir, "eigs_lqr_longitudinal.png"), dpi=150)
     plt.close()
 
-    print(f"Wrote artifacts to {args.outdir} (and sim log: {out_path})")
+    plt.figure(figsize=(9, 4))
+    plt.plot(open_sim["t"], open_sim["err"], label="open-loop error norm")
+    plt.plot(closed_sim["t"], closed_sim["err"], label="closed-loop error norm")
+    plt.grid(True, alpha=0.25)
+    plt.xlabel("t [s]")
+    plt.ylabel("||x_lon - x_trim||")
+    plt.title("Longitudinal Perturbation Recovery")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(args.outdir, "response_error_open_closed.png"), dpi=150)
+    plt.close()
+
+    plt.figure(figsize=(9, 4))
+    plt.plot(open_sim["t"], open_sim["x"][:, int(StateIndex.Q)], label="open-loop q")
+    plt.plot(closed_sim["t"], closed_sim["x"][:, int(StateIndex.Q)], label="closed-loop q")
+    plt.grid(True, alpha=0.25)
+    plt.xlabel("t [s]")
+    plt.ylabel("q [rad/s]")
+    plt.title("Pitch Rate Response")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(args.outdir, "response_q_open_closed.png"), dpi=150)
+    plt.close()
+
+    plt.figure(figsize=(9, 4))
+    plt.plot(closed_sim["t"], np.rad2deg(closed_sim["de"]), label="elevator [deg]")
+    plt.plot(closed_sim["t"], closed_sim["thr"] * 100.0, label="throttle [%]")
+    plt.grid(True, alpha=0.25)
+    plt.xlabel("t [s]")
+    plt.ylabel("Control effort")
+    plt.title("Closed-Loop Control Effort")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(args.outdir, "control_effort_closed.png"), dpi=150)
+    plt.close()
+
+    # Data outputs
+    trim_df = pd.DataFrame(
+        [
+            {
+                "aircraft_id": args.aircraft_id,
+                "speed_mps": args.speed_mps,
+                "alpha_rad": float(np.arctan2(x_trim[int(StateIndex.W)], x_trim[int(StateIndex.U)])),
+                "theta_rad": float(x_trim[int(StateIndex.THETA)]),
+                "throttle": float(u_trim[int(ControlIndex.THROTTLE)]),
+                "elevator_rad": float(u_trim[int(ControlIndex.ELEVATOR)]),
+                "u_mps": float(x_trim[int(StateIndex.U)]),
+                "w_mps": float(x_trim[int(StateIndex.W)]),
+            }
+        ]
+    )
+    trim_df.to_csv(os.path.join(args.outdir, "trim_summary.csv"), index=False)
+
+    pd.DataFrame(
+        [{"real": float(ev.real), "imag": float(ev.imag)} for ev in eig_open]
+    ).to_csv(os.path.join(args.outdir, "eigenvalues_open_loop.csv"), index=False)
+    pd.DataFrame(
+        [{"real": float(ev.real), "imag": float(ev.imag)} for ev in eig_closed_lon]
+    ).to_csv(os.path.join(args.outdir, "eigenvalues_closed_loop_longitudinal.csv"), index=False)
+
+    modal_df = pd.DataFrame([asdict(m) for m in modal.modes])
+    modal_df.to_csv(os.path.join(args.outdir, "modal_summary.csv"), index=False)
+
+    pd.DataFrame(np.asarray(lqr_design.K, dtype=float)).to_csv(
+        os.path.join(args.outdir, "lqr_gain_matrix.csv"), index=False, header=False
+    )
+
+    response_df = pd.DataFrame(
+        [
+            {
+                "scenario": "open_loop",
+                "peak_q_radps": float(np.max(np.abs(open_sim["x"][:, int(StateIndex.Q)]))),
+                "final_error_norm": float(open_sim["err"][-1]),
+            },
+            {
+                "scenario": "closed_loop",
+                "peak_q_radps": float(np.max(np.abs(closed_sim["x"][:, int(StateIndex.Q)]))),
+                "final_error_norm": float(closed_sim["err"][-1]),
+            },
+        ]
+    )
+    response_df.to_csv(os.path.join(args.outdir, "response_metrics.csv"), index=False)
+
+    print(f"Artifacts written to: {args.outdir}")
 
 
 if __name__ == "__main__":
     main()
-
-
