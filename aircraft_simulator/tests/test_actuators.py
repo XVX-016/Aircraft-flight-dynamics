@@ -1,7 +1,7 @@
 import numpy as np
 
-from sim.aircraft.aerodynamics import ControlInputs
-from sim.control.actuators import ActuatorState
+from adcs_core.aircraft.aerodynamics import ControlInputs
+from adcs_core.control.actuators import ActuatorState
 
 
 def test_actuator_lag_moves_toward_command():

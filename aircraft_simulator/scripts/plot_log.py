@@ -6,7 +6,7 @@ import os
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from sim.analysis.metrics import step_response_metrics
+from adcs_core.analysis.metrics import step_response_metrics
 
 
 def main() -> None:

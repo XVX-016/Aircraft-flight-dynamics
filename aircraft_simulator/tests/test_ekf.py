@@ -1,6 +1,6 @@
 import numpy as np
 
-from sim.estimation.ekf import AttitudeEKF
+from adcs_core.estimation.ekf import AttitudeEKF
 
 
 def test_attitude_ekf_heading_update_reduces_innovation():

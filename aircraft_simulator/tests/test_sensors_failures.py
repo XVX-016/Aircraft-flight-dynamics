@@ -2,9 +2,9 @@ import math
 
 import numpy as np
 
-from sim.control.failure_modes import FailureManager
-from sim.sensors.altimeter import Altimeter
-from sim.sensors.common import SampleConfig
+from adcs_core.control.failure_modes import FailureManager
+from adcs_core.sensors.altimeter import Altimeter
+from adcs_core.sensors.common import SampleConfig
 
 
 def test_altimeter_delay_holds_previous_value():

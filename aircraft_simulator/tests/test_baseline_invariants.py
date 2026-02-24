@@ -4,13 +4,13 @@ from pathlib import Path
 
 import numpy as np
 
-from aircraft_simulator.sim.aircraft.aerodynamics import ControlInputs
-from aircraft_simulator.sim.aircraft.database import get_aircraft_model
-from aircraft_simulator.sim.analysis.lqr_longitudinal import design_longitudinal_lqr
-from aircraft_simulator.sim.analysis.trim import compute_level_trim
-from aircraft_simulator.sim.control.linearize import linearize
-from aircraft_simulator.sim.dynamics.integrator import rk4_step
-from aircraft_simulator.sim.model import xdot_full
+from adcs_core.aircraft.aerodynamics import ControlInputs
+from adcs_core.aircraft.database import get_aircraft_model
+from adcs_core.analysis.lqr_longitudinal import design_longitudinal_lqr
+from adcs_core.analysis.trim import compute_level_trim
+from adcs_core.control.linearize import linearize
+from adcs_core.dynamics.integrator import rk4_step
+from adcs_core.model import xdot_full
 
 
 BASELINE_DIR = Path("aircraft_simulator/tests/baseline")

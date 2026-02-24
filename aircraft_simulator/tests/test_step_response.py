@@ -1,8 +1,8 @@
 import pandas as pd
 
-from sim.analysis.metrics import step_response_metrics
-from sim.control.autopilot import AutopilotTargets
-from sim.simulator import run
+from adcs_core.analysis.metrics import step_response_metrics
+from adcs_core.control.autopilot import AutopilotTargets
+from adcs_core.simulator import run
 
 
 def test_altitude_step_response_metrics_smoke(tmp_path, monkeypatch):

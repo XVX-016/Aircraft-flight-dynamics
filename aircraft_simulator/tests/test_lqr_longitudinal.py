@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from aircraft_simulator.sim.aircraft.aerodynamics import ControlInputs
-from aircraft_simulator.sim.aircraft.database import get_aircraft_model
-from aircraft_simulator.sim.analysis.lqr_longitudinal import (
+from adcs_core.aircraft.aerodynamics import ControlInputs
+from adcs_core.aircraft.database import get_aircraft_model
+from adcs_core.analysis.lqr_longitudinal import (
     compare_open_closed_longitudinal_response,
     design_longitudinal_lqr,
 )
-from aircraft_simulator.sim.analysis.trim import compute_level_trim
-from aircraft_simulator.sim.control.linearize import linearize
-from aircraft_simulator.sim.model import xdot_full
+from adcs_core.analysis.trim import compute_level_trim
+from adcs_core.control.linearize import linearize
+from adcs_core.model import xdot_full
 
 
 def test_f16_longitudinal_lqr_stabilizes_linear_subsystem() -> None:

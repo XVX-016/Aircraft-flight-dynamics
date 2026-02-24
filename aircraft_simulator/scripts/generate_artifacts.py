@@ -14,14 +14,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from sim.aircraft.aerodynamics import ControlInputs
-from sim.control.linearize import linearize, select_subsystem
-from sim.control.lqr import lqr
-from sim.model import xdot_full
-from sim.state import State
-from sim.simulator import run
-from sim.control.autopilot import AutopilotTargets
-from sim.analysis.metrics import step_response_metrics
+from adcs_core.aircraft.aerodynamics import ControlInputs
+from adcs_core.control.linearize import linearize, select_subsystem
+from adcs_core.control.lqr import lqr
+from adcs_core.model import xdot_full
+from adcs_core.state import State
+from adcs_core.simulator import run
+from adcs_core.control.autopilot import AutopilotTargets
+from adcs_core.analysis.metrics import step_response_metrics
 
 
 def main() -> None:

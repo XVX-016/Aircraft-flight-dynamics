@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from aircraft_simulator.sim.aircraft.aerodynamics import ControlInputs
-from aircraft_simulator.sim.aircraft.database import get_aircraft_model
-from aircraft_simulator.sim.analysis.modal_fidelity import select_longitudinal_complex_mode
-from aircraft_simulator.sim.analysis.numerical_robustness import run_amplitude_sweep, run_dt_convergence
-from aircraft_simulator.sim.analysis.trim import compute_level_trim
-from aircraft_simulator.sim.control.linearize import linearize
-from aircraft_simulator.sim.model import xdot_full
+from adcs_core.aircraft.aerodynamics import ControlInputs
+from adcs_core.aircraft.database import get_aircraft_model
+from adcs_core.analysis.modal_fidelity import select_longitudinal_complex_mode
+from adcs_core.analysis.numerical_robustness import run_amplitude_sweep, run_dt_convergence
+from adcs_core.analysis.trim import compute_level_trim
+from adcs_core.control.linearize import linearize
+from adcs_core.model import xdot_full
 
 
 def test_dt_convergence_uses_invariant_estimators_and_is_numerically_stable() -> None:
