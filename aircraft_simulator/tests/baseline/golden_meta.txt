@@ -1,0 +1,5 @@
+aircraft_id=f16_research
+speed_mps=150.0
+dt_s=0.01
+horizon_s=5.0
+sample_index=50
