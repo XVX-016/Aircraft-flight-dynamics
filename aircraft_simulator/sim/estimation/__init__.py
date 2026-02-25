@@ -1,3 +1,0 @@
-from aircraft_simulator.sim.estimation.complementary_filter import AttitudeComplementaryFilter
-
-

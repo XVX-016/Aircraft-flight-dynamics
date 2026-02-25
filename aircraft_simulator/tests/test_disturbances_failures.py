@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from sim.control.autopilot import AutopilotTargets
-from sim.simulator import run
+from adcs_core.control.autopilot import AutopilotTargets
+from adcs_core.simulator import run
 
 
 def test_runs_with_wind_disturbance(tmp_path, monkeypatch):

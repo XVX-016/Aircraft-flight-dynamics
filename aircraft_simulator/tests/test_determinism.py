@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from sim.control.autopilot import AutopilotTargets
-from sim.simulator import run
+from adcs_core.control.autopilot import AutopilotTargets
+from adcs_core.simulator import run
 
 
 def test_sim_determinism_same_seed_same_trajectory(tmp_path, monkeypatch):

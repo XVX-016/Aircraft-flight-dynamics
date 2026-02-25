@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from aircraft_simulator.sim.aircraft.database import get_aircraft_model
-from aircraft_simulator.sim.analysis.jacobian_validation import validate_jacobian
-from aircraft_simulator.sim.analysis.trim import compute_level_trim
+from adcs_core.aircraft.database import get_aircraft_model
+from adcs_core.analysis.jacobian_validation import validate_jacobian
+from adcs_core.analysis.trim import compute_level_trim
 
 
 @pytest.mark.parametrize(

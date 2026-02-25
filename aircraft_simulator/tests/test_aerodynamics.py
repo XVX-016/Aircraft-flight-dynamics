@@ -1,8 +1,8 @@
 import numpy as np
 
-from sim.aircraft.aerodynamics import ControlInputs, compute_aero_forces_moments_body
-from sim.aircraft.parameters import AircraftParameters
-from sim.state import State
+from adcs_core.aircraft.aerodynamics import ControlInputs, compute_aero_forces_moments_body
+from adcs_core.aircraft.parameters import AircraftParameters
+from adcs_core.state import State
 
 
 def test_lift_increases_with_positive_alpha():

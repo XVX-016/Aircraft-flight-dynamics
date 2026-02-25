@@ -3,10 +3,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from aircraft_simulator.sim.aircraft.aerodynamics import ControlInputs
-from aircraft_simulator.sim.aircraft.database import get_aircraft_model
-from aircraft_simulator.sim.analysis.trim import compute_level_trim
-from aircraft_simulator.sim.model import xdot_full
+from adcs_core.aircraft.aerodynamics import ControlInputs
+from adcs_core.aircraft.database import get_aircraft_model
+from adcs_core.analysis.trim import compute_level_trim
+from adcs_core.model import xdot_full
 
 
 @pytest.mark.parametrize(

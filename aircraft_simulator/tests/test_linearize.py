@@ -1,9 +1,9 @@
 import numpy as np
 
-from sim.aircraft.aerodynamics import ControlInputs
-from sim.control.linearize import linearize, select_subsystem
-from sim.model import xdot_full
-from sim.state import State
+from adcs_core.aircraft.aerodynamics import ControlInputs
+from adcs_core.control.linearize import linearize, select_subsystem
+from adcs_core.model import xdot_full
+from adcs_core.state import State
 
 
 def test_linearize_shapes():

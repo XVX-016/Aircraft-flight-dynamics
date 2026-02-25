@@ -1,4 +1,4 @@
-from sim.control.pid import PID
+from adcs_core.control.pid import PID
 
 
 def test_pid_saturates_and_does_not_runaway_integral():
