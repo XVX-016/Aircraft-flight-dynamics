@@ -9,10 +9,15 @@ import { SpectralPlot } from "@/components/analysis/SpectralPlot";
 
 export default function TrimPage() {
     const { selectedAircraftId, flightCondition, setFlightCondition, setAircraft, computed, loading, error } = useAircraftContext();
-    const [velocity, setVelocity] = useState(flightCondition.velocity);
-    const [altitude, setAltitude] = useState(flightCondition.altitude);
+    const [velocityInput, setVelocityInput] = useState(String(flightCondition.velocity));
+    const [altitudeInput, setAltitudeInput] = useState(String(flightCondition.altitude));
 
     const handleRecompute = async () => {
+        const velocity = Number.parseFloat(velocityInput);
+        const altitude = Number.parseFloat(altitudeInput);
+        if (!Number.isFinite(velocity) || !Number.isFinite(altitude)) {
+            return;
+        }
         await setFlightCondition({ velocity, altitude });
     };
 
@@ -29,6 +34,11 @@ export default function TrimPage() {
             void setAircraft(selectedAircraftId);
         }
     }, [selectedAircraftId, hasResults, loading, error, setAircraft]);
+
+    useEffect(() => {
+        setVelocityInput(String(flightCondition.velocity));
+        setAltitudeInput(String(flightCondition.altitude));
+    }, [flightCondition.velocity, flightCondition.altitude]);
 
     return (
         <div className="min-h-screen bg-neutral-950 text-white relative overflow-hidden pt-24 px-8 pb-12">
@@ -51,8 +61,8 @@ export default function TrimPage() {
                                     <label className="block text-[10px] uppercase text-white/40 mb-1">Target Airspeed (m/s)</label>
                                     <input
                                         type="number"
-                                        value={velocity}
-                                        onChange={(e) => setVelocity(parseFloat(e.target.value))}
+                                        value={velocityInput}
+                                        onChange={(e) => setVelocityInput(e.target.value)}
                                         className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm font-mono text-white focus:border-blue-500 outline-none transition-colors"
                                     />
                                 </div>
@@ -60,8 +70,8 @@ export default function TrimPage() {
                                     <label className="block text-[10px] uppercase text-white/40 mb-1">Altitude (m)</label>
                                     <input
                                         type="number"
-                                        value={altitude}
-                                        onChange={(e) => setAltitude(parseFloat(e.target.value))}
+                                        value={altitudeInput}
+                                        onChange={(e) => setAltitudeInput(e.target.value)}
                                         className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm font-mono text-white focus:border-blue-500 outline-none transition-colors"
                                     />
                                 </div>
@@ -69,7 +79,12 @@ export default function TrimPage() {
 
                             <button
                                 onClick={handleRecompute}
-                                disabled={!selectedAircraftId || loading}
+                                disabled={
+                                    !selectedAircraftId
+                                    || loading
+                                    || !Number.isFinite(Number.parseFloat(velocityInput))
+                                    || !Number.isFinite(Number.parseFloat(altitudeInput))
+                                }
                                 className="w-full mt-8 border border-white/20 bg-white/5 text-white text-xs font-bold uppercase tracking-widest py-3 flex items-center justify-center gap-2"
                             >
                                 {loading ? <Activity className="w-4 h-4 animate-spin" /> : <Cpu className="w-4 h-4" />}

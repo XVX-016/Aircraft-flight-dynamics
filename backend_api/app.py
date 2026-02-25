@@ -29,6 +29,7 @@ from adcs_core.api import (
     WindModel,
     analyze_modal_structure,
     compute_level_trim,
+    design_longitudinal_lqr,
     derivatives_6dof,
     forces_and_moments_body,
     get_aircraft_model,
@@ -255,6 +256,23 @@ def _linearize_full(x0: np.ndarray, u0: np.ndarray, params: AircraftParameters) 
     return A, B
 
 
+def _serialize_eigs(eigs: np.ndarray) -> list[dict[str, float]]:
+    return [{"real": float(ev.real), "imag": float(ev.imag)} for ev in np.asarray(eigs).reshape(-1)]
+
+
+def _min_damping(eigs: np.ndarray) -> float | None:
+    zetas: list[float] = []
+    for ev in np.asarray(eigs).reshape(-1):
+        sigma = float(np.real(ev))
+        omega = float(np.imag(ev))
+        if abs(omega) < 1e-10:
+            continue
+        wn = float(np.hypot(sigma, omega))
+        if wn > 1e-12:
+            zetas.append(float(-sigma / wn))
+    return min(zetas) if zetas else None
+
+
 @app.post("/api/v1/aircraft/select")
 def select_aircraft(payload: Dict[str, Any]) -> Dict[str, Any]:
     aircraft_id = payload.get("aircraft_id") or payload.get("id")
@@ -362,6 +380,85 @@ def compute_linearization(payload: Dict[str, Any]) -> Dict[str, Any]:
         "B": B.tolist(),
         "eigenvalues": eig_list,
         "modal_analysis": modal,
+    }
+
+
+@app.post("/api/v1/analysis/control")
+def compute_control_analysis(payload: Dict[str, Any]) -> Dict[str, Any]:
+    V_mps = float(payload.get("V_mps", 60.0))
+    q_pitch_mult = float(payload.get("q_pitch_mult", 1.0))
+    q_speed_mult = float(payload.get("q_speed_mult", 1.0))
+    r_effort_mult = float(payload.get("r_effort_mult", 1.0))
+
+    params = runtime.params
+    try:
+        trim = compute_level_trim(V_mps, params, limits=runtime.limits)
+    except RuntimeError as exc:
+        return {"error": str(exc)}
+
+    A, B = _linearize_full(trim.x0, trim.u0, params)
+    q_base = np.diag([1.0, 10.0, 100.0, 50.0])
+    r_base = np.diag([1.0, 0.5])
+    q_eff = np.diag([
+        q_base[0, 0] * max(1e-6, q_speed_mult),
+        q_base[1, 1] * max(1e-6, q_pitch_mult),
+        q_base[2, 2] * max(1e-6, q_pitch_mult),
+        q_base[3, 3] * max(1e-6, q_pitch_mult),
+    ])
+    r_eff = r_base * max(1e-6, r_effort_mult)
+
+    try:
+        design = design_longitudinal_lqr(A, B, Q=q_eff, R=r_eff)
+    except RuntimeError as exc:
+        return {"error": str(exc)}
+
+    eig_open = np.asarray(design.open_loop_eigenvalues, dtype=complex)
+    eig_closed = np.asarray(design.closed_loop_eigenvalues, dtype=complex)
+    zeta_open = _min_damping(eig_open)
+    zeta_closed = _min_damping(eig_closed)
+    max_re_open = float(np.max(np.real(eig_open)))
+    max_re_closed = float(np.max(np.real(eig_closed)))
+
+    return {
+        "aircraft_id": runtime.selected_aircraft_id,
+        "V_mps": V_mps,
+        "trim": {
+            "alpha_rad": trim.alpha,
+            "theta_rad": trim.theta,
+            "throttle": trim.throttle,
+            "elevator_rad": trim.elevator,
+            "residual_norm": trim.residual_norm,
+            "solver_success": trim.success,
+            "solver_nfev": trim.nfev,
+        },
+        "weights": {
+            "q_pitch_mult": q_pitch_mult,
+            "q_speed_mult": q_speed_mult,
+            "r_effort_mult": r_effort_mult,
+            "Q": q_eff.tolist(),
+            "R": r_eff.tolist(),
+        },
+        "lqr": {
+            "K": np.asarray(design.K, dtype=float).tolist(),
+            "controllability_rank": int(design.controllability_rank),
+            "controllability_condition": float(design.controllability_condition),
+        },
+        "open_loop": {
+            "eigenvalues": _serialize_eigs(eig_open),
+            "max_real_eig": max_re_open,
+            "spectral_margin": float(-max_re_open),
+            "min_damping_ratio": zeta_open,
+        },
+        "closed_loop": {
+            "eigenvalues": _serialize_eigs(eig_closed),
+            "max_real_eig": max_re_closed,
+            "spectral_margin": float(-max_re_closed),
+            "min_damping_ratio": zeta_closed,
+        },
+        "improvement": {
+            "max_real_shift": float(max_re_open - max_re_closed),
+            "damping_delta": None if zeta_open is None or zeta_closed is None else float(zeta_closed - zeta_open),
+        },
     }
 
 @app.websocket("/ws")
