@@ -97,7 +97,11 @@ interface AircraftContextValue extends AircraftContextState {
 const AircraftContext = createContext<AircraftContextValue | null>(null);
 
 const configuredApiBase = process.env.NEXT_PUBLIC_API_BASE?.trim();
-const API_BASE = configuredApiBase ? configuredApiBase.replace(/\/+$/, "") : "";
+// Enable relative pathing if NEXT_PUBLIC_API_BASE is not explicitly set, 
+// which allows the backend to serve the frontend from the same origin.
+const API_BASE = (configuredApiBase && configuredApiBase !== "http://localhost:8000")
+    ? configuredApiBase.replace(/\/+$/, "")
+    : "";
 
 function apiUrl(path: string) {
     if (path.startsWith("http://") || path.startsWith("https://")) return path;
