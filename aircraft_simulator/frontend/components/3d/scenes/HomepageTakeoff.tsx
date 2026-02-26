@@ -5,11 +5,13 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import { Group } from "three";
 import AirflowParticles from "../airflow/AirflowParticles";
+import { useAircraftContext } from "../../../context/AircraftContext";
 
 export default function HomepageTakeoff() {
     const planeRef = useRef<Group>(null);
     const { scene } = useGLTF("/models/fighterplane/scene.gltf");
     const { size } = useThree();
+    const { validation } = useAircraftContext();
 
     const isMobile = size.width < 768;
     const modelScale = isMobile ? 1.5 : 2.5;
@@ -19,6 +21,10 @@ export default function HomepageTakeoff() {
             return;
         }
     });
+
+    if (!validation.backendCapable) {
+        return null;
+    }
 
     return (
         <group>
