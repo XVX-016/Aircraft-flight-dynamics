@@ -19,13 +19,31 @@ export interface AircraftContextState {
         A?: number[][];
         B?: number[][];
         eigenvalues?: { real: number; imag: number }[];
+        modalAnalysis?: {
+            spectral_margin: number;
+            min_damping_ratio: number | null;
+            unstable_modes: number;
+            neutral_modes: number;
+            modes: {
+                type: string;
+                family: string;
+                eigenvalue_real: number;
+                eigenvalue_imag: number;
+                wn: number | null;
+                zeta: number | null;
+                stable: boolean;
+            }[];
+        };
         trim?: {
             x0: number[];
             u0: number[];
             alpha_rad: number;
+            theta_rad?: number;
             throttle: number;
             elevator_rad: number;
             residual_norm: number;
+            solver_success?: boolean;
+            solver_nfev?: number;
         };
     };
     validation: {
@@ -156,19 +174,24 @@ export function AircraftProvider({ children }: { children: React.ReactNode }) {
                 x0: number[];
                 u0: number[];
                 alpha_rad: number;
+                theta_rad?: number;
                 throttle: number;
                 elevator_rad: number;
                 residual_norm: number;
+                solver_success?: boolean;
+                solver_nfev?: number;
             }>("/api/v1/analysis/trim", { V_mps: activeCondition.velocity });
 
             const linearize = await postJSON<{
                 A: number[][];
                 B: number[][];
                 eigenvalues: { real: number; imag: number }[];
+                modal_analysis?: AircraftContextState["computed"]["modalAnalysis"];
                 trim: {
                     x0: number[];
                     u0: number[];
                     alpha_rad: number;
+                    theta_rad?: number;
                     throttle: number;
                     elevator_rad: number;
                     residual_norm: number;
@@ -194,7 +217,11 @@ export function AircraftProvider({ children }: { children: React.ReactNode }) {
                     A: linearize.A,
                     B: linearize.B,
                     eigenvalues: linearize.eigenvalues,
-                    trim: linearize.trim ?? trim,
+                    modalAnalysis: linearize.modal_analysis,
+                    trim: {
+                        ...(trim ?? {}),
+                        ...(linearize.trim ?? {}),
+                    },
                 },
                 validation: { backendCapable: true, warnings: [] },
                 loading: false,
