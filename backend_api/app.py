@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import threading
 import time
 from dataclasses import asdict
@@ -49,15 +50,20 @@ PLOTS_DIR = BASE_DIR / "plots"
 
 app = FastAPI(title="Aircraft Simulator API", version="0.1.0")
 
-# Allow local frontend dev servers
+# CORS origins can be configured via ALLOWED_ORIGINS (comma-separated).
+# Keeps localhost defaults for local development if env var is not set.
+_default_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
+_allowed_origins = [o.strip() for o in _origins_env.split(",") if o.strip()] if _origins_env else _default_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -489,6 +495,5 @@ def _handle_command(data: Dict[str, Any]) -> None:
         runtime.set_wind(float(data.get("n", 0.0)), float(data.get("e", 0.0)), float(data.get("d", 0.0)))
     elif t == "set_autopilot":
         runtime.set_autopilot(bool(data.get("enabled", True)))
-
 
 
