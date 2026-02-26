@@ -44,7 +44,7 @@ from adcs_core.api import (
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-FRONTEND_DIR = BASE_DIR / "frontend"
+FRONTEND_DIR = BASE_DIR / "aircraft_simulator" / "frontend"
 PLOTS_DIR = BASE_DIR / "plots"
 
 app = FastAPI(title="Aircraft Simulator API", version="0.1.0")
