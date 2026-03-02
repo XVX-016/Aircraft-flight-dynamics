@@ -97,16 +97,24 @@ interface AircraftContextValue extends AircraftContextState {
 const AircraftContext = createContext<AircraftContextValue | null>(null);
 
 const configuredApiBase = process.env.NEXT_PUBLIC_API_BASE?.trim();
-// Enable relative pathing if NEXT_PUBLIC_API_BASE is not explicitly set, 
-// which allows the backend to serve the frontend from the same origin.
-const API_BASE = (configuredApiBase && configuredApiBase !== "http://localhost:8000")
-    ? configuredApiBase.replace(/\/+$/, "")
-    : "";
+const API_BASE = configuredApiBase ? configuredApiBase.replace(/\/+$/, "") : "";
+
+function resolveApiBase() {
+    if (API_BASE) return API_BASE;
+    if (typeof window !== "undefined") {
+        const host = window.location.hostname;
+        if (host === "localhost" || host === "127.0.0.1") {
+            return "http://localhost:8000";
+        }
+    }
+    return "";
+}
 
 function apiUrl(path: string) {
     if (path.startsWith("http://") || path.startsWith("https://")) return path;
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-    return API_BASE ? `${API_BASE}${normalizedPath}` : normalizedPath;
+    const base = resolveApiBase();
+    return base ? `${base}${normalizedPath}` : normalizedPath;
 }
 
 async function postJSON<T>(path: string, body: Record<string, unknown>): Promise<T> {
@@ -274,5 +282,4 @@ export function useAircraftContext(): AircraftContextValue {
     if (!ctx) throw new Error("useAircraftContext must be used within <AircraftProvider>");
     return ctx;
 }
-
 

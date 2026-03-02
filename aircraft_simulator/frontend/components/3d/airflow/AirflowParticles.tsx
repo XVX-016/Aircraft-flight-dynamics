@@ -5,14 +5,11 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { generateSDFFromMesh } from "@/lib/utils/sdfGenerator";
 
-import { useAircraftContext } from "@/context/AircraftContext";
-
 const PARTICLE_COUNT = 12000;
 
 export default function AirflowParticles() {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const [sdfData, setSdfData] = useState<{ texture: THREE.Data3DTexture | null, box: THREE.Box3 | null }>({ texture: null, box: null });
-  const { validation } = useAircraftContext();
 
   useEffect(() => {
     const group = new THREE.Group();
@@ -234,10 +231,6 @@ export default function AirflowParticles() {
       uniforms.uMach.value = 1.1 + Math.sin(state.clock.elapsedTime * 0.5) * 0.3;
     }
   });
-
-  if (!validation.backendCapable) {
-    return null;
-  }
 
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, PARTICLE_COUNT]} frustumCulled={false}>
