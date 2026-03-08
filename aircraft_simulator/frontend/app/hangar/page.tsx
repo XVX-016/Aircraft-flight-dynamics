@@ -38,7 +38,7 @@ export default function HangarPage() {
                         )}
                     </div>
 
-                    <div className="lg:col-span-5 min-h-[520px] flex items-center justify-center border border-white/10 overflow-hidden bg-black">
+                    <div className="lg:col-span-5 self-stretch border border-white/10 overflow-hidden bg-black">
                         <HangarViewer
                             aircraftId={selectedAircraftId}
                             name={metadata?.name ?? null}

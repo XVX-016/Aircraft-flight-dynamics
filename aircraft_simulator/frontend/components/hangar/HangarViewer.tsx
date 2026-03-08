@@ -120,22 +120,23 @@ export default function HangarViewer({ aircraftId, name, wingspan }: HangarViewe
     const paths = useMemo(() => (aircraftId ? MODEL_PATHS[aircraftId] ?? [] : []), [aircraftId]);
 
     const cameraPos = useMemo(() => {
-        if (!wingspan) return null;
-        const xz = 1.2 * wingspan;
-        const y = 0.4 * wingspan;
-        return [xz, y, xz] as [number, number, number];
-    }, [wingspan]);
+        // Model is normalized to targetDim=6.0
+        // Use fixed camera distance for consistent framing
+        const dist = 10;
+        const y = 3;
+        return [dist, y, dist] as [number, number, number];
+    }, []);
 
-    if (!wingspan || !cameraPos || paths.length === 0) {
+    if (paths.length === 0) {
         return (
-            <div className="w-full h-full min-h-[400px] flex items-center justify-center text-xs font-mono text-white/40">
+            <div className="w-full h-full min-h-[520px] flex items-center justify-center text-xs font-mono text-white/40">
                 Select an aircraft to load 3D reference model.
             </div>
         );
     }
 
     return (
-        <div className="w-full h-full min-h-[400px] relative overflow-hidden border border-white/10 bg-black">
+        <div className="w-full h-full min-h-[520px] relative overflow-hidden border border-white/10 bg-black">
             <HangarCanvas key={aircraftId ?? "none"} paths={paths} cameraPos={cameraPos} />
             <div className="pointer-events-none absolute bottom-4 left-4">
                 <h2 className="text-2xl font-bold uppercase tracking-tighter text-white">{name ?? "No Aircraft Selected"}</h2>
