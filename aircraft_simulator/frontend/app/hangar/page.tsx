@@ -14,8 +14,8 @@ export default function HangarPage() {
     };
 
     return (
-        <div className="min-h-screen bg-neutral-950 text-white">
-            <main className="pt-24 px-8 pb-12 max-w-[1920px] mx-auto">
+        <div className="bg-neutral-950 text-white">
+            <main className="pt-24 px-8 pb-16 max-w-[1920px] mx-auto">
                 <header className="mb-8 flex items-end justify-between border-b border-white/5 pb-6">
                     <div>
                         <h1 className="mb-2 text-xs font-mono tracking-[0.4em] text-white/40 uppercase">Aircraft Hangar</h1>
@@ -28,8 +28,8 @@ export default function HangarPage() {
                     </div>
                 </header>
 
-                <div className="grid grid-cols-12 gap-8 max-h-[70vh]">
-                    <div className="col-span-7 h-full overflow-auto pr-2 custom-scrollbar">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    <div className="lg:col-span-7 pr-2">
                         <HangarMetadata />
                         {error ? (
                             <div className="text-xs font-mono text-red-400">Backend unavailable.</div>
@@ -38,7 +38,7 @@ export default function HangarPage() {
                         )}
                     </div>
 
-                    <div className="col-span-5 h-full flex items-center justify-center border border-white/10 overflow-hidden bg-black">
+                    <div className="lg:col-span-5 self-stretch border border-white/10 overflow-hidden bg-black">
                         <HangarViewer
                             aircraftId={selectedAircraftId}
                             name={metadata?.name ?? null}
