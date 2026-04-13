@@ -125,6 +125,9 @@ def compute_level_trim(
         dtype=float,
     )
 
+    # Ensure initial guess is within bounds
+    z0 = np.clip(z0, bounds_lo, bounds_hi)
+
     def residual(z: np.ndarray) -> np.ndarray:
         alpha, theta, de, throttle = [float(v) for v in z]
         u = V * np.cos(alpha)

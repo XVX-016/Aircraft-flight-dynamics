@@ -39,6 +39,10 @@
     "out/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "lib/__tests__",
+    "app/**/__tests__",
+    "vitest.config.ts",
+    "vitest.setup.ts"
   ]
 }

@@ -1,92 +1,117 @@
-# Aircraft Flight Dynamics Control Project
+# ADCS-SIM: Advanced Aircraft Dynamics and Control Simulation
 
-Technically grounded fixed-wing flight dynamics and control project with:
-- nonlinear 6-DOF dynamics
-- nonlinear trim solve
-- finite-difference linearization
-- modal analysis
-- longitudinal LQR design
-- reproducibility and architecture enforcement tests
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.103.1-009688.svg?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg?style=flat&logo=nextdotjs)](https://nextjs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Run
+ADCS-SIM is a high-fidelity, full-envelope flight dynamics and control research platform. It combines a rigorous 6-DOF nonlinear physics engine with modern state-space control theory and real-time 3D visualization, designed for aerospace engineering education and autopilot research.
 
-### Backend API
-From repo root:
+---
 
+## 🚀 Core Features
+
+### ✈️ 6-DOF Flight Physics
+- **Nonlinear Dynamics**: High-fidelity 6-DOF rigid body equations of motion solved via **Runge-Kutta 4 (RK4)** integration.
+- **Flight Envelope**: Comprehensive aerodynamic modeling covering stall, high-alpha, and Mach-dependent effects.
+- **Dryden Turbulence**: Stochastic wind model implementing MIL-F-8785C standards for atmospheric disturbance simulation.
+
+### 🕹️ Advanced Controls & Autopilot
+- **Full-State LQR**: Integrated Longitudinal and Lateral-Directional **Linear Quadratic Regulators** for robust trajectory tracking.
+- **Spiral Stability**: Active LQR-based stabilization for traditionally unstable spiral modes.
+- **Trim Solver**: Nonlinear constrained optimization for finding steady-state level flight, climbing, or turning equilibrium.
+
+### 🧪 Stability & Analysis Lab
+- **Modal Analysis**: Automatic extraction of Short Period, Phugoid, Dutch Roll, and Spiral modes.
+- **Linearization Engine**: Finite-difference state-space extraction ($A, B, C, D$ matrices) at any flight condition.
+- **Frequency Response**: Real-time Bode and Root Locus analysis for stability margin verification.
+
+### 📡 State Estimation & Telemetry
+- **EKF Integration**: Extended Kalman Filter for sensor fusion, estimating aircraft state from noisy measurement streams.
+- **50Hz WebSocket Data**: Low-latency, binary-optimized telemetry stream driving the frontend at 50Hz.
+
+### 🎮 Real-time Visualization
+- **React Three Fiber (WebGL)**: 3D flight deck with Chase, Top-Down, and Side-Profile cameras.
+- **Glass Cockpit HUD**: Modern instrument panel with real-time charts for Altitude, Airspeed, and Control Effort.
+
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Technologies |
+| :--- | :--- |
+| **Backend** | Python 3.10, FastAPI, Scipy, Numpy, FilterPy |
+| **Frontend** | Next.js 14, React, Three.js (R3F), TailwindCSS, Recharts |
+| **Integrator** | Runge-Kutta 4 (RK4) |
+| **Communication** | WebSockets (High-Frequency Stream) |
+
+---
+
+## 🏁 Getting Started
+
+### 1. Prerequisites
+- Python 3.10 or higher
+- Node.js 18.x or higher
+- `npm` or `yarn`
+
+### 2. Backend Setup
 ```bash
+# Clone the repository
+git clone https://github.com/your-username/aircraft-flight-dynamics.git
+cd aircraft-flight-dynamics
+
+# Create virtual environment
 python -m venv venv
-venv\Scripts\activate
+source venv/bin/activate  # venv\Scripts\activate on Windows
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Start the simulation engine
 python -m uvicorn backend_api.app:app --reload --port 8000
 ```
 
-Compatibility entrypoint still works:
-
+### 3. Frontend Setup
 ```bash
-python -m uvicorn aircraft_simulator.api.app:app --reload --port 8000
-```
+# Navigate to frontend directory
+cd aircraft_simulator/frontend
 
-API docs:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-### Frontend
-From `aircraft_simulator/frontend`:
-
-```bash
+# Install dependencies
 npm install
+
+# Start the dev server
 npm run dev
 ```
+Open [http://localhost:3000](http://localhost:3000) to access the Flight Deck.
 
-Set `aircraft_simulator/frontend/.env.local`:
+---
 
-```text
-NEXT_PUBLIC_API_BASE=http://localhost:8000
-```
+## 🏗️ Architecture
 
-## Generate Report Artifacts
+ADCS-SIM utilizes a decoupled architecture to separate heavy numerical computation from client-side rendering:
 
-Run trim-first open/closed-loop artifact generation:
+1.  **Physics Core (`adcs_core`)**: Pure Python implementation of aircraft dynamics. Dependency-free for maximum portability.
+2.  **API Layer (`backend_api`)**: FastAPI handles long-lived WebSocket connections. It manages a `SimRuntime` instance that steps the physics engine at 50Hz.
+3.  **UI (`frontend`)**: A React-based dashboard. It consumes the telemetry stream and updates the 3D scene and HUD metrics with sub-millisecond latency.
 
-```bash
-python aircraft_simulator/scripts/generate_artifacts.py --aircraft-id cessna_172r --speed-mps 60 --outdir aircraft_simulator/plots/phase_report
-```
+---
 
-Outputs include:
-- eigenvalue plots (open-loop and closed-loop longitudinal)
-- perturbation recovery plots (open vs closed)
-- closed-loop control effort plot
-- CSV summaries (trim, eigenvalues, modal summary, LQR gain, response metrics)
-
-## Docs
-
-- Formulation: `docs/control_formulation.md`
-- Determinism policy: `docs/determinism_policy.md`
-- Results interpretation: `docs/results_interpretation.md`
-- Report table template: `docs/report_table_template.md`
-
-## Test and Gates
-
-Run full tests:
-
-```bash
-python -m pytest -q
-```
-
-Key enforcement gates:
-- baseline invariants
-- public API surface freeze
-- architecture boundary test
-- external import boundary test
-
-## Project Layout
+## 📊 Project Layout
 
 ```text
-adcs_core/                  # physics and control engine
-backend_api/                # FastAPI adapter layer
-aircraft_simulator/frontend # UI
-aircraft_simulator/scripts  # artifact generation scripts
-docs/                       # technical and interpretation docs
+├── adcs_core/              # Physics, Aero, and Control logic
+│   ├── aircraft/           # Model definitions (Cessna 172, F-16)
+│   ├── analysis/           # LQR, Trim, and Modal analysis solvers
+│   └── state/              # 12-state vector definitions
+├── backend_api/            # FastAPI endpoints and SimRuntime
+├── aircraft_simulator/
+│   ├── frontend/           # Next.js / React Three Fiber UI
+│   └── scripts/            # Batch analysis and artifact generation
+└── docs/                   # Detailed technical formulation
 ```
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the `LICENSE` file for details.

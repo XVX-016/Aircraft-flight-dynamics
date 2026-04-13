@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Any, Dict
 
 import numpy as np
 
@@ -68,6 +68,24 @@ def _inertia_tensor(Ixx: float, Iyy: float, Izz: float, Ixz: float) -> np.ndarra
         ],
         dtype=float,
     )
+
+
+def make_inertia_tensor(Ixx: float, Iyy: float, Izz: float, Ixz: float = 0.0) -> np.ndarray:
+    return _inertia_tensor(Ixx, Iyy, Izz, Ixz)
+
+
+def _require_positive(label: str, value: float) -> float:
+    numeric = float(value)
+    if not np.isfinite(numeric) or numeric <= 0.0:
+        raise ValueError(f"{label} must be positive.")
+    return numeric
+
+
+def _require_nonzero(label: str, value: float, *, atol: float = 1e-9) -> float:
+    numeric = float(value)
+    if not np.isfinite(numeric) or abs(numeric) <= atol:
+        raise ValueError(f"{label} must be nonzero for a physically meaningful custom aircraft.")
+    return numeric
 
 
 def _build_c172() -> AircraftModel:
@@ -210,4 +228,91 @@ def get_aircraft_model(aircraft_id: str) -> AircraftModel:
     if aircraft_id not in _AIRCRAFT_DB:
         raise KeyError(f"Unknown aircraft_id '{aircraft_id}'. Available: {list_aircraft_ids()}")
     return _AIRCRAFT_DB[aircraft_id]
+
+
+def build_aircraft_model_from_payload(payload: Dict[str, Any], *, aircraft_id: str = "custom_local") -> AircraftModel:
+    geometry_payload = payload.get("geometry", {})
+    inertia_payload = payload.get("inertia", {})
+    aero_payload = payload.get("aero", {})
+    params_payload = payload.get("params", {})
+    limits_payload = payload.get("limits", {})
+
+    geometry = AircraftGeometry(
+        wing_area=_require_positive("geometry.wing_area", geometry_payload["wing_area"]),
+        wingspan=_require_positive("geometry.wingspan", geometry_payload["wingspan"]),
+        mean_aerodynamic_chord=_require_positive("geometry.mean_aerodynamic_chord", geometry_payload["mean_aerodynamic_chord"]),
+        tail_arm=_require_positive("geometry.tail_arm", geometry_payload["tail_arm"]),
+        cg_location=float(geometry_payload["cg_location"]),
+    )
+    inertia = AircraftInertia(
+        mass=_require_positive("inertia.mass", inertia_payload["mass"]),
+        Ixx=_require_positive("inertia.Ixx", inertia_payload["Ixx"]),
+        Iyy=_require_positive("inertia.Iyy", inertia_payload["Iyy"]),
+        Izz=_require_positive("inertia.Izz", inertia_payload["Izz"]),
+        Ixz=float(inertia_payload.get("Ixz", 0.0)),
+    )
+    aero = AerodynamicDerivatives(
+        Xu=float(aero_payload["Xu"]),
+        Xw=float(aero_payload["Xw"]),
+        Zu=float(aero_payload["Zu"]),
+        Zw=float(aero_payload["Zw"]),
+        Mu=float(aero_payload["Mu"]),
+        Mw=float(aero_payload["Mw"]),
+        Mq=_require_nonzero("aero.Mq", aero_payload["Mq"]),
+        Yv=float(aero_payload["Yv"]),
+        Lv=float(aero_payload["Lv"]),
+        Lp=_require_nonzero("aero.Lp", aero_payload["Lp"]),
+        Nr=_require_nonzero("aero.Nr", aero_payload["Nr"]),
+    )
+    params = AircraftParameters(
+        mass_kg=inertia.mass,
+        inertia_kgm2=_inertia_tensor(inertia.Ixx, inertia.Iyy, inertia.Izz, inertia.Ixz),
+        S_m2=geometry.wing_area,
+        cbar_m=geometry.mean_aerodynamic_chord,
+        b_m=geometry.wingspan,
+        rho_kgm3=_require_positive("params.rho_kgm3", params_payload["rho_kgm3"]),
+        max_thrust_N=_require_positive("params.max_thrust_N", params_payload["max_thrust_N"]),
+        CL0=float(params_payload["CL0"]),
+        CL_alpha_per_rad=_require_nonzero("params.CL_alpha_per_rad", params_payload["CL_alpha_per_rad"]),
+        CL_q=float(params_payload["CL_q"]),
+        CL_de_per_rad=_require_nonzero("params.CL_de_per_rad", params_payload["CL_de_per_rad"]),
+        CD0=float(params_payload["CD0"]),
+        CD_k=float(params_payload["CD_k"]),
+        Cm0=float(params_payload["Cm0"]),
+        Cm_alpha_per_rad=float(params_payload["Cm_alpha_per_rad"]),
+        Cm_q_per_rad=float(params_payload["Cm_q_per_rad"]),
+        Cm_de_per_rad=_require_nonzero("params.Cm_de_per_rad", params_payload["Cm_de_per_rad"]),
+        CY_beta_per_rad=float(params_payload["CY_beta_per_rad"]),
+        CY_dr_per_rad=float(params_payload["CY_dr_per_rad"]),
+        Cl_beta_per_rad=float(params_payload["Cl_beta_per_rad"]),
+        Cl_p=float(params_payload["Cl_p"]),
+        Cl_r=float(params_payload["Cl_r"]),
+        Cl_da_per_rad=float(params_payload["Cl_da_per_rad"]),
+        Cl_dr_per_rad=float(params_payload["Cl_dr_per_rad"]),
+        Cn_beta_per_rad=float(params_payload["Cn_beta_per_rad"]),
+        Cn_p=float(params_payload["Cn_p"]),
+        Cn_r=float(params_payload["Cn_r"]),
+        Cn_da_per_rad=float(params_payload["Cn_da_per_rad"]),
+        Cn_dr_per_rad=float(params_payload["Cn_dr_per_rad"]),
+    )
+    limits = ActuatorLimits(
+        elevator_max_rad=float(limits_payload.get("elevator_max_rad", np.deg2rad(25.0))),
+        aileron_max_rad=float(limits_payload.get("aileron_max_rad", np.deg2rad(20.0))),
+        rudder_max_rad=float(limits_payload.get("rudder_max_rad", np.deg2rad(30.0))),
+    )
+    metadata = dict(payload.get("metadata", {}))
+    metadata.setdefault("source", "Custom user-defined configuration")
+
+    return AircraftModel(
+        id=str(payload.get("id", aircraft_id)),
+        name=str(payload.get("name", "Custom Aircraft")),
+        classification=str(payload.get("classification", "custom")),
+        stability_mode=str(payload.get("stability_mode", "stable")),
+        geometry=geometry,
+        inertia=inertia,
+        aero_derivatives=aero,
+        params=params,
+        limits=limits,
+        metadata=metadata,
+    )
 

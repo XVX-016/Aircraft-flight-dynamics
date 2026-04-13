@@ -1,0 +1,232 @@
+/* Flight Deck — Multi-panel layout */
+
+.flight-deck {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    height: calc(100vh - 64px);
+    gap: 1px;
+    background: rgba(255, 255, 255, 0.05);
+    position: relative;
+}
+
+.flight-deck-panel {
+    position: relative;
+    overflow: hidden;
+    background: var(--stealth-black, #080808);
+}
+
+.flight-deck-panel-label {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    z-index: 20;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.3);
+    pointer-events: none;
+    user-select: none;
+}
+
+.flight-deck-canvas {
+    position: fixed;
+    top: 64px;
+    left: 0;
+    width: 100%;
+    height: calc(100vh - 64px);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.flight-deck-panel-3d {
+    pointer-events: auto;
+}
+
+/* ── Connection indicator ─────────────────────────────────────────────── */
+
+.connection-indicator {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.4);
+    pointer-events: none;
+}
+
+.connection-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50% !important;
+}
+
+.connection-dot--connected {
+    background: #34d399;
+    box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+}
+
+.connection-dot--disconnected {
+    background: #ef4444;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+
+.connection-dot--connecting {
+    background: #f59e0b;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+}
+
+/* ── Instrument Panel (Panel 4) ───────────────────────────────────────── */
+
+.instrument-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    padding: 12px;
+    gap: 8px;
+    background: var(--stealth-black, #080808);
+    z-index: 10;
+    position: relative;
+}
+
+.instrument-chart-wrapper {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 8px;
+}
+
+.instrument-chart-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.35);
+    margin-bottom: 4px;
+}
+
+.hud-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hud-metric-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.hud-metric-value {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* ── Scenario buttons ─────────────────────────────────────────────────── */
+
+.scenario-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+
+.scenario-btn {
+    padding: 8px 6px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    text-align: center;
+}
+
+.scenario-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* ── Controls section ─────────────────────────────────────────────────── */
+
+.control-slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.control-slider-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.control-slider-value {
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 600;
+}
+
+.control-slider-input {
+    width: 100%;
+    accent-color: rgba(255, 255, 255, 0.5);
+    height: 2px;
+    cursor: pointer;
+}
+
+.autopilot-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+}
+
+.autopilot-toggle--active {
+    border-color: rgba(52, 211, 153, 0.3);
+}
+
+/* ── Responsive — mobile stacks vertically ────────────────────────────── */
+
+@media (max-width: 767px) {
+    .flight-deck {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr 1fr 1fr auto;
+        height: auto;
+        min-height: calc(100vh - 64px);
+    }
+
+    .flight-deck-panel-3d {
+        min-height: 280px;
+    }
+
+    .flight-deck-canvas {
+        position: absolute;
+        top: 0;
+        height: 100%;
+    }
+}

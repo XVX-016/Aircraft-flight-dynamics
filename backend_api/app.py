@@ -4,9 +4,9 @@ import asyncio
 import json
 import os
 import threading
-import time
 from dataclasses import asdict
 from typing import Any, Dict, Optional
+from pathlib import Path
 
 import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -30,6 +30,9 @@ from adcs_core.api import (
     WindModel,
     analyze_modal_structure,
     compute_level_trim,
+    compute_lqr_lateral,
+    compute_lqr_longitudinal,
+    design_lateral_lqr,
     design_longitudinal_lqr,
     derivatives_6dof,
     forces_and_moments_body,
@@ -38,11 +41,23 @@ from adcs_core.api import (
     post_step_sanitize,
     rk4_step,
     rotation_body_to_inertial,
-    xdot_full,
 )
-
-
-from pathlib import Path
+from adcs_core.analysis.lqr_longitudinal import LONGITUDINAL_STATE_IDX_FULL, LONGITUDINAL_INPUT_IDX_FULL
+from adcs_core.analysis.lqr_lateral import LATERAL_STATE_IDX_FULL, LATERAL_INPUT_IDX_FULL
+from adcs_core.environment.dryden import DrydenTurbulence
+from backend_api.workbench import (
+    build_analysis_bundle,
+    control_response,
+    custom_aircraft_response,
+    estimation_response,
+    frequency_response,
+    linearization_response,
+    mode_shapes_response,
+    serialize_model,
+    step_response,
+    trim_response,
+    validation_response,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "aircraft_simulator" / "frontend" / "out"
@@ -51,7 +66,6 @@ PLOTS_DIR = BASE_DIR / "plots"
 app = FastAPI(title="Aircraft Simulator API", version="0.1.0")
 
 # CORS origins can be configured via ALLOWED_ORIGINS (comma-separated).
-# Keeps localhost defaults for local development if env var is not set.
 _default_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -94,14 +108,26 @@ class SimRuntime:
 
         self.state = State(x=0.0, y=0.0, z=-1000.0, u=35.0, v=0.0, w=0.0)
         self.t = 0.0
-
         self.dt = 0.02
         self.running = False
 
         self.targets = AutopilotTargets(airspeed_mps=35.0, altitude_m=1000.0, heading_rad=0.0)
         self.autopilot_enabled = True
 
-        self.ap = Autopilot()
+        # Phase 11: LQR weights
+        # Longitudinal weights [u, w, q, theta]
+        self.Q_lon = np.diag([1.0, 10.0, 100.0, 50.0])
+        self.R_lon = np.diag([1.0, 0.5])  # [elevator, throttle]
+
+        # Lateral weights [v, p, r, phi]
+        self.Q_lat = np.diag([1.0, 10.0, 10.0, 50.0])
+        self.R_lat = np.diag([1.0, 1.0])  # [aileron, rudder]
+
+        self.K_lon = np.zeros((2, 4))
+        self.K_lat = np.zeros((2, 4))
+        self.trim_x0 = self.state.as_vector()
+        self.trim_u0 = np.array([0.5, 0.0, 0.0, 0.0]) # throttle, aileron, elevator, rudder
+
         self.act = ActuatorState(tau_s=0.15, limits=self.limits)
         self.act.reset(ControlInputs(throttle=0.5))
         self.failures = FailureManager()
@@ -113,7 +139,42 @@ class SimRuntime:
         self.compass = Compass(seed=self.seed + 3)
         self.imu = IMU(seed=self.seed + 4)
 
+        self.turbulence_intensity = 0.1
+        self.dryden = DrydenTurbulence(intensity=self.turbulence_intensity, seed=self.seed + 5)
+
         self.last_packet: Dict[str, Any] = {}
+        
+        # Initial trim and gain calculation
+        self.recompute_gains()
+
+    def recompute_gains(self) -> None:
+        """
+        Computes the LQR gains based on current aircraft and targets.
+        """
+        try:
+            # 1. Trim for current target airspeed
+            trim = compute_level_trim(self.targets.airspeed_mps, self.params, limits=self.limits)
+            self.trim_x0 = trim.x0
+            self.trim_u0 = trim.u0
+
+            # 2. Linearize
+            def f_sim(x, u_vec):
+                ctrl = ControlInputs(throttle=u_vec[0], aileron=u_vec[1], elevator=u_vec[2], rudder=u_vec[3])
+                return xdot_full(x, ctrl, params=self.params, limits=self.limits)
+            
+            A, B = linearize(f_sim, trim.x0, trim.u0)
+
+            # 3. Design LQR
+            design_lon = design_longitudinal_lqr(A, B, Q=self.Q_lon, R=self.R_lon)
+            design_lat = design_lateral_lqr(A, B, Q=self.Q_lat, R=self.R_lat)
+
+            self.K_lon = design_lon.K
+            self.K_lat = design_lat.K
+            
+            # Reset state to trim (optional, but good for stability on change)
+            # self.state = State.from_vector(trim.x0)
+        except Exception as e:
+            print(f"Error computing LQR gains: {e}")
 
     def select_aircraft(self, aircraft_id: str) -> Dict[str, Any]:
         model = get_aircraft_model(aircraft_id)
@@ -121,13 +182,16 @@ class SimRuntime:
             self.selected_aircraft_id = model.id
             self.params = model.params
             self.limits = model.limits
+            
+            # Reset state for the new aircraft
             self.state = State(x=0.0, y=0.0, z=-1000.0, u=35.0, v=0.0, w=0.0)
             self.t = 0.0
-
-            self.ap = Autopilot()
+            
             self.act = ActuatorState(tau_s=0.15, limits=self.limits)
             self.act.reset(ControlInputs(throttle=0.5))
             self.failures = FailureManager()
+            
+            self.recompute_gains()
 
         return {
             "id": model.id,
@@ -142,15 +206,24 @@ class SimRuntime:
 
     def set_targets(self, V: Optional[float] = None, alt: Optional[float] = None, hdg_deg: Optional[float] = None) -> None:
         with self.lock:
+            old_V = self.targets.airspeed_mps
             self.targets = AutopilotTargets(
                 airspeed_mps=self.targets.airspeed_mps if V is None else float(V),
                 altitude_m=self.targets.altitude_m if alt is None else float(alt),
                 heading_rad=self.targets.heading_rad if hdg_deg is None else float(np.deg2rad(hdg_deg)),
             )
+            # If airspeed target changed significantly, recompute gains
+            if V is not None and abs(V - old_V) > 1.0:
+                self.recompute_gains()
 
     def set_autopilot(self, enabled: bool) -> None:
         with self.lock:
             self.autopilot_enabled = bool(enabled)
+
+    def set_turbulence(self, intensity: float) -> None:
+        with self.lock:
+            self.turbulence_intensity = float(np.clip(intensity, 0.0, 1.0))
+            self.dryden.intensity = self.turbulence_intensity
 
     def step(self) -> Dict[str, Any]:
         with self.lock:
@@ -160,78 +233,99 @@ class SimRuntime:
 
             self.failures.step(t)
 
-            x = s.as_vector()
             params = self.params
             limits = self.limits
 
             # wind, body transform
             w_ned = self.wind.step(dt)
             C_bi = rotation_body_to_inertial(s.phi, s.theta, s.psi)
-            w_body = C_bi.T @ w_ned
+            w_body_steady = C_bi.T @ w_ned
+
             v_b = np.array([s.u, s.v, s.w], dtype=float)
-            v_air_b = v_b - w_body
+            v_air_mps = float(np.linalg.norm(v_b - w_body_steady))
+            w_body_turb = self.dryden.step(dt, -float(s.z), v_air_mps)
 
-            # gravity in body for IMU
-            g_i = np.array([0.0, 0.0, params.g_ms2], dtype=float)
-            g_b = C_bi.T @ g_i
+            v_air_b = v_b - w_body_steady - w_body_turb
 
-            meas: Dict[str, float] = {
-                "altitude_m": self.altimeter.read(t, -float(s.z), dt),
-                "airspeed_mps": self.airspeed_sensor.read(t, float(np.linalg.norm(v_air_b)), dt),
-                "heading_rad": self.compass.read(t, float(s.psi), dt),
-                "phi_rad": float(s.phi),
-                "theta_rad": float(s.theta),
-            }
-            meas.update(
-                self.imu.read(
-                    t,
-                    pqr_radps=np.array([s.p, s.q, s.r], dtype=float),
-                    uvw_mps=v_b,
-                    g_b_ms2=g_b,
-                    dt=dt,
-                )
-            )
-            meas = self.failures.apply_sensors(meas)
-
-            u_cmd = ControlInputs(throttle=0.5)
-            ap_debug: Dict[str, float] = {}
+            # Autopilot logic (Phase 11: LQR)
+            u_cmd = ControlInputs(throttle=self.trim_u0[0], aileron=0.0, elevator=self.trim_u0[2], rudder=0.0)
+            lqr_debug = {}
+            
             if self.autopilot_enabled:
-                u_cmd, ap_debug = self.ap.update(meas, self.targets, dt)
+                # 1. Longitudinal LQR
+                # States: [u, w, q, theta]
+                x_lon = s.as_vector()[LONGITUDINAL_STATE_IDX_FULL]
+                x_ref_lon = self.trim_x0[LONGITUDINAL_STATE_IDX_FULL].copy()
+                
+                # Altitude command -> pitch command using a simple outer loop or altitude state in LQR
+                # For now, let's keep it simple: penalize theta vs trim.
+                # To follow altitude, we'd need an augmented state or an outer PID.
+                # Let's use an outer PID for altitude -> delta_theta as in Phase 2, but LQR for the rest.
+                alt_err = self.targets.altitude_m - (-s.z)
+                theta_cmd = np.clip(0.008 * alt_err, -0.3, 0.3)
+                x_ref_lon[3] = theta_cmd 
+                
+                du_lon = -self.K_lon @ (x_lon - x_ref_lon) # [elevator, throttle]
+                
+                # 2. Lateral LQR
+                # States: [v, p, r, phi]
+                x_lat = s.as_vector()[LATERAL_STATE_IDX_FULL]
+                x_ref_lat = self.trim_x0[LATERAL_STATE_IDX_FULL].copy()
+                
+                # Heading command -> bank command
+                psi_err = float((self.targets.heading_rad - s.psi + np.pi) % (2.0 * np.pi) - np.pi)
+                phi_cmd = np.clip(1.2 * psi_err, -0.6, 0.6)
+                x_ref_lat[3] = phi_cmd
+                
+                du_lat = -self.K_lat @ (x_lat - x_ref_lat) # [aileron, rudder]
+                
+                u_cmd = ControlInputs(
+                    throttle=float(np.clip(self.trim_u0[0] + du_lon[1], 0, 1)),
+                    elevator=float(np.clip(self.trim_u0[2] + du_lon[0], -limits.elevator_max_rad, limits.elevator_max_rad)),
+                    aileron=float(np.clip(du_lat[0], -limits.aileron_max_rad, limits.aileron_max_rad)),
+                    rudder=float(np.clip(du_lat[1], -limits.rudder_max_rad, limits.rudder_max_rad))
+                )
+                lqr_debug = {
+                    "delta_a": float(du_lat[0]),
+                    "delta_r": float(du_lat[1]),
+                    "delta_x_lat": (x_lat - x_ref_lat).tolist(),
+                    "phi_deg": float(np.degrees(s.phi)),
+                    "theta_cmd": float(theta_cmd),
+                    "phi_cmd": float(phi_cmd),
+                }
+
             u_cmd = self.failures.apply_actuator(u_cmd)
             u = self.act.update(u_cmd, dt)
 
-            # dynamics (wind held constant within step)
+            # dynamics
             def f_dyn(ti: float, xi: np.ndarray) -> np.ndarray:
                 si = State.from_vector(xi)
                 C_bi_i = rotation_body_to_inertial(si.phi, si.theta, si.psi)
-                w_body_i = C_bi_i.T @ w_ned
+                w_body_steady_i = C_bi_i.T @ w_ned
                 v_b_i = np.array([si.u, si.v, si.w], dtype=float)
-                v_air_b_i = v_b_i - w_body_i
+                v_air_b_i = v_b_i - w_body_steady_i - w_body_turb
                 F, M, _ = forces_and_moments_body(si, u, params, limits, uvw_air_mps=v_air_b_i)
                 return derivatives_6dof(ti, xi, params, F, M)
 
-            x = rk4_step(f_dyn, t, x, dt)
-            x = post_step_sanitize(x)
-            s_next = State.from_vector(x)
-
-            self.state = s_next
+            x_next = rk4_step(f_dyn, t, s.as_vector(), dt)
+            x_next = post_step_sanitize(x_next)
+            self.state = State.from_vector(x_next)
             self.t = t + dt
 
             packet = {
                 "t": float(self.t),
                 "truth": {
-                    "x": float(s_next.x),
-                    "y": float(s_next.y),
-                    "z": float(s_next.z),
-                    "altitude_m": -float(s_next.z),
-                    "phi": float(s_next.phi),
-                    "theta": float(s_next.theta),
-                    "psi": float(s_next.psi),
-                    "u": float(s_next.u),
-                    "v": float(s_next.v),
-                    "w": float(s_next.w),
+                    "x": float(self.state.x),
+                    "y": float(self.state.y),
+                    "z": float(self.state.z),
+                    "altitude_m": -float(self.state.z),
+                    "phi": float(self.state.phi),
+                    "theta": float(self.state.theta),
+                    "psi": float(self.state.psi),
+                    "u": float(self.state.u),
+                    "v": float(self.state.v),
+                    "w": float(self.state.w),
                 },
-                "meas": {k: float(v) if np.isfinite(v) else None for k, v in meas.items()},
                 "wind_ned": {"n": float(w_ned[0]), "e": float(w_ned[1]), "d": float(w_ned[2])},
                 "controls": {"cmd": asdict(u_cmd), "act": asdict(u)},
                 "targets": {
@@ -239,7 +333,11 @@ class SimRuntime:
                     "alt": float(self.targets.altitude_m),
                     "hdg_deg": float(np.rad2deg(self.targets.heading_rad)),
                 },
-                "ap": ap_debug,
+                "turbulence": {
+                    "intensity": float(self.turbulence_intensity),
+                    "gust_uvw": self.dryden.last_output.tolist(),
+                },
+                "ap": lqr_debug,
             }
 
             self.last_packet = packet
@@ -248,224 +346,83 @@ class SimRuntime:
 
 runtime = SimRuntime()
 
-def _linearize_full(x0: np.ndarray, u0: np.ndarray, params: AircraftParameters) -> tuple[np.ndarray, np.ndarray]:
-    def f(x: np.ndarray, u_vec: np.ndarray) -> np.ndarray:
-        ctrl = ControlInputs(
-            throttle=float(u_vec[0]),
-            aileron=float(u_vec[1]),
-            elevator=float(u_vec[2]),
-            rudder=float(u_vec[3]),
-        )
-        return xdot_full(x, ctrl, params=params)
-
-    A, B = linearize(f, x0, u0)
-    return A, B
-
-
-def _serialize_eigs(eigs: np.ndarray) -> list[dict[str, float]]:
-    return [{"real": float(ev.real), "imag": float(ev.imag)} for ev in np.asarray(eigs).reshape(-1)]
-
-
-def _min_damping(eigs: np.ndarray) -> float | None:
-    zetas: list[float] = []
-    for ev in np.asarray(eigs).reshape(-1):
-        sigma = float(np.real(ev))
-        omega = float(np.imag(ev))
-        if abs(omega) < 1e-10:
-            continue
-        wn = float(np.hypot(sigma, omega))
-        if wn > 1e-12:
-            zetas.append(float(-sigma / wn))
-    return min(zetas) if zetas else None
-
 
 @app.post("/api/v1/aircraft/select")
 def select_aircraft(payload: Dict[str, Any]) -> Dict[str, Any]:
     aircraft_id = payload.get("aircraft_id") or payload.get("id")
     if not aircraft_id:
         return {"error": "Missing 'aircraft_id' in request body."}
-
     try:
         meta = runtime.select_aircraft(str(aircraft_id))
         model = get_aircraft_model(str(aircraft_id))
     except KeyError as exc:
         return {"error": str(exc)}
-
-    return {
-        "selected_aircraft": meta,
-        "geometry": {
-            "wingArea": model.geometry.wing_area,
-            "wingspan": model.geometry.wingspan,
-            "meanAerodynamicChord": model.geometry.mean_aerodynamic_chord,
-            "tailArm": model.geometry.tail_arm,
-            "cgLocation": model.geometry.cg_location,
-        },
-        "inertia": {
-            "mass": model.inertia.mass,
-            "Ixx": model.inertia.Ixx,
-            "Iyy": model.inertia.Iyy,
-            "Izz": model.inertia.Izz,
-            "Ixz": model.inertia.Ixz,
-        },
-        "aero": {
-            "Xu": model.aero_derivatives.Xu,
-            "Xw": model.aero_derivatives.Xw,
-            "Zu": model.aero_derivatives.Zu,
-            "Zw": model.aero_derivatives.Zw,
-            "Mu": model.aero_derivatives.Mu,
-            "Mw": model.aero_derivatives.Mw,
-            "Mq": model.aero_derivatives.Mq,
-            "Yv": model.aero_derivatives.Yv,
-            "Lv": model.aero_derivatives.Lv,
-            "Lp": model.aero_derivatives.Lp,
-            "Nr": model.aero_derivatives.Nr,
-        },
-        "metadata": model.metadata,
-    }
+    return {**serialize_model(model), "selected_aircraft": meta}
 
 
 @app.post("/api/v1/analysis/trim")
 def compute_trim(payload: Dict[str, Any]) -> Dict[str, Any]:
-    V_mps = float(payload.get("V_mps", 60.0))
-    params = runtime.params
     try:
-        trim = compute_level_trim(V_mps, params, limits=runtime.limits)
-    except RuntimeError as exc:
-        return {"error": str(exc)}
-
-    return {
-        "aircraft_id": runtime.selected_aircraft_id,
-        "V_mps": V_mps,
-        "x0": trim.x0.tolist(),
-        "u0": trim.u0.tolist(),
-        "alpha_rad": trim.alpha,
-        "theta_rad": trim.theta,
-        "throttle": trim.throttle,
-        "elevator_rad": trim.elevator,
-        "residual_norm": trim.residual_norm,
-        "solver_success": trim.success,
-        "solver_nfev": trim.nfev,
-    }
+        bundle = build_analysis_bundle(payload, current_model=get_aircraft_model(runtime.selected_aircraft_id))
+        return trim_response(bundle)
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.post("/api/v1/analysis/linearize")
 def compute_linearization(payload: Dict[str, Any]) -> Dict[str, Any]:
-    V_mps = float(payload.get("V_mps", 60.0))
-    params = runtime.params
-    model = get_aircraft_model(runtime.selected_aircraft_id)
-
     try:
-        trim = compute_level_trim(V_mps, params, limits=runtime.limits)
-    except RuntimeError as exc:
-        return {"error": str(exc)}
-
-    A, B = _linearize_full(trim.x0, trim.u0, params)
-    eigvals = np.linalg.eigvals(A)
-    eig_list = [{"real": float(ev.real), "imag": float(ev.imag)} for ev in eigvals]
-    modal = analyze_modal_structure(A).as_dict()
-
-    if model.stability_mode == "relaxed":
-        if not any(ev.real > 0.0 for ev in eigvals):
-            return {
-                "error": "Relaxed-stability aircraft must exhibit at least one unstable eigenvalue (Re>0).",
-                "eigenvalues": eig_list,
-            }
-
-    return {
-        "aircraft_id": runtime.selected_aircraft_id,
-        "V_mps": V_mps,
-        "trim": {
-            "x0": trim.x0.tolist(),
-            "u0": trim.u0.tolist(),
-            "alpha_rad": trim.alpha,
-            "throttle": trim.throttle,
-            "elevator_rad": trim.elevator,
-            "residual_norm": trim.residual_norm,
-        },
-        "A": A.tolist(),
-        "B": B.tolist(),
-        "eigenvalues": eig_list,
-        "modal_analysis": modal,
-    }
+        bundle = build_analysis_bundle(payload, current_model=get_aircraft_model(runtime.selected_aircraft_id))
+        return linearization_response(bundle)
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.post("/api/v1/analysis/control")
 def compute_control_analysis(payload: Dict[str, Any]) -> Dict[str, Any]:
-    V_mps = float(payload.get("V_mps", 60.0))
-    q_pitch_mult = float(payload.get("q_pitch_mult", 1.0))
-    q_speed_mult = float(payload.get("q_speed_mult", 1.0))
-    r_effort_mult = float(payload.get("r_effort_mult", 1.0))
-
-    params = runtime.params
     try:
-        trim = compute_level_trim(V_mps, params, limits=runtime.limits)
-    except RuntimeError as exc:
-        return {"error": str(exc)}
+        return control_response(payload, current_model=get_aircraft_model(runtime.selected_aircraft_id))
+    except Exception as e:
+        return {"error": str(e)}
 
-    A, B = _linearize_full(trim.x0, trim.u0, params)
-    q_base = np.diag([1.0, 10.0, 100.0, 50.0])
-    r_base = np.diag([1.0, 0.5])
-    q_eff = np.diag([
-        q_base[0, 0] * max(1e-6, q_speed_mult),
-        q_base[1, 1] * max(1e-6, q_pitch_mult),
-        q_base[2, 2] * max(1e-6, q_pitch_mult),
-        q_base[3, 3] * max(1e-6, q_pitch_mult),
-    ])
-    r_eff = r_base * max(1e-6, r_effort_mult)
-
+@app.post("/api/v1/analysis/step-response")
+def compute_step_response(payload: Dict[str, Any]) -> Dict[str, Any]:
     try:
-        design = design_longitudinal_lqr(A, B, Q=q_eff, R=r_eff)
-    except RuntimeError as exc:
-        return {"error": str(exc)}
+        return step_response(payload, current_model=get_aircraft_model(runtime.selected_aircraft_id))
+    except Exception as e:
+        return {"error": str(e)}
 
-    eig_open = np.asarray(design.open_loop_eigenvalues, dtype=complex)
-    eig_closed = np.asarray(design.closed_loop_eigenvalues, dtype=complex)
-    zeta_open = _min_damping(eig_open)
-    zeta_closed = _min_damping(eig_closed)
-    max_re_open = float(np.max(np.real(eig_open)))
-    max_re_closed = float(np.max(np.real(eig_closed)))
 
-    return {
-        "aircraft_id": runtime.selected_aircraft_id,
-        "V_mps": V_mps,
-        "trim": {
-            "alpha_rad": trim.alpha,
-            "theta_rad": trim.theta,
-            "throttle": trim.throttle,
-            "elevator_rad": trim.elevator,
-            "residual_norm": trim.residual_norm,
-            "solver_success": trim.success,
-            "solver_nfev": trim.nfev,
-        },
-        "weights": {
-            "q_pitch_mult": q_pitch_mult,
-            "q_speed_mult": q_speed_mult,
-            "r_effort_mult": r_effort_mult,
-            "Q": q_eff.tolist(),
-            "R": r_eff.tolist(),
-        },
-        "lqr": {
-            "K": np.asarray(design.K, dtype=float).tolist(),
-            "controllability_rank": int(design.controllability_rank),
-            "controllability_condition": float(design.controllability_condition),
-        },
-        "open_loop": {
-            "eigenvalues": _serialize_eigs(eig_open),
-            "max_real_eig": max_re_open,
-            "spectral_margin": float(-max_re_open),
-            "min_damping_ratio": zeta_open,
-        },
-        "closed_loop": {
-            "eigenvalues": _serialize_eigs(eig_closed),
-            "max_real_eig": max_re_closed,
-            "spectral_margin": float(-max_re_closed),
-            "min_damping_ratio": zeta_closed,
-        },
-        "improvement": {
-            "max_real_shift": float(max_re_open - max_re_closed),
-            "damping_delta": None if zeta_open is None or zeta_closed is None else float(zeta_closed - zeta_open),
-        },
-    }
+@app.post("/api/v1/estimation/run")
+def run_estimation(payload: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        return estimation_response(payload, current_model=get_aircraft_model(runtime.selected_aircraft_id))
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/v1/analysis/frequency-response")
+def compute_frequency_response(payload: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        return frequency_response(payload, current_model=get_aircraft_model(runtime.selected_aircraft_id))
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/v1/analysis/mode-shapes")
+def compute_mode_shapes(payload: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        return mode_shapes_response(payload, current_model=get_aircraft_model(runtime.selected_aircraft_id))
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/v1/validation/run")
+def run_validation(payload: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        return validation_response(payload, current_model=get_aircraft_model(runtime.selected_aircraft_id))
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
@@ -493,7 +450,7 @@ def _handle_command(data: Dict[str, Any]) -> None:
         runtime.set_targets(V=data.get("V"), alt=data.get("alt"), hdg_deg=data.get("hdg_deg"))
     elif t == "set_wind":
         runtime.set_wind(float(data.get("n", 0.0)), float(data.get("e", 0.0)), float(data.get("d", 0.0)))
+    elif t == "set_turbulence":
+        runtime.set_turbulence(float(data.get("intensity", 0.0)))
     elif t == "set_autopilot":
         runtime.set_autopilot(bool(data.get("enabled", True)))
-
-

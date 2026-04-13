@@ -7,6 +7,7 @@ from adcs_core.aircraft.database import get_aircraft_model
 from adcs_core.aircraft.forces_moments import ActuatorLimits, forces_and_moments_body
 from adcs_core.aircraft.parameters import AircraftParameters
 from adcs_core.analysis.lqr_longitudinal import LongitudinalLqrDesign, design_longitudinal_lqr
+from adcs_core.analysis.lqr_lateral import LateralLqrDesign, design_lateral_lqr, extract_lateral_subsystem
 from adcs_core.analysis.modal_analysis import ModalAnalysisResult, analyze_modal_structure
 from adcs_core.analysis.trim import TrimResult, compute_level_trim
 from adcs_core.control.actuators import ActuatorState
@@ -40,6 +41,11 @@ def compute_lqr_longitudinal(A: np.ndarray, B: np.ndarray, *args, **kwargs) -> L
     return design_longitudinal_lqr(A, B, *args, **kwargs)
 
 
+def compute_lqr_lateral(A: np.ndarray, B: np.ndarray, *args, **kwargs) -> LateralLqrDesign:
+    """Public lateral-directional LQR design entrypoint."""
+    return design_lateral_lqr(A, B, *args, **kwargs)
+
+
 __all__ = [
     "ControlIndex",
     "ControlInputs",
@@ -61,15 +67,19 @@ __all__ = [
     "IMU",
     "State",
     "LongitudinalLqrDesign",
+    "LateralLqrDesign",
     "ModalAnalysisResult",
     "StateIndex",
     "TrimResult",
     "analyze_modal_structure",
     "compute_level_trim",
     "compute_lqr_longitudinal",
+    "compute_lqr_lateral",
     "compute_modal_analysis",
     "compute_trim",
     "design_longitudinal_lqr",
+    "design_lateral_lqr",
+    "extract_lateral_subsystem",
     "linearize",
     "rk4_step",
     "xdot_full",
