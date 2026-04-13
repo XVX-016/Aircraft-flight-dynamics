@@ -129,6 +129,17 @@ export default function InstrumentPanel({ state, history, sendCommand, connected
         [sendCommand],
     );
 
+    const applyScenario = useCallback(
+        (config: ScenarioConfig) => {
+            if (config.targets.V !== undefined) setTargetSpeed(config.targets.V);
+            if (config.targets.alt !== undefined) setTargetAlt(config.targets.alt);
+            if (config.targets.hdg_deg !== undefined) setTargetHdg(config.targets.hdg_deg);
+            setWindN(config.wind.n);
+            setWindE(config.wind.e);
+            if (config.autopilot !== undefined) {
+                setAutopilotOn(config.autopilot);
+                sendCommand({ type: "set_autopilot", enabled: config.autopilot });
+            }
             sendCommand({ type: "set_targets", ...config.targets });
             sendCommand({ type: "set_wind", ...config.wind });
         },
@@ -166,7 +177,7 @@ export default function InstrumentPanel({ state, history, sendCommand, connected
                     alignItems: "center",
                     justifyContent: "space-between"
                 }}>
-                    <span style={{ fontSize: 10, uppercase: "true", fontWeight: "bold", tracking: "0.1em" }}>
+                    <span style={{ fontSize: 10, textTransform: "uppercase", fontWeight: "bold", letterSpacing: "0.1em" }}>
                         {isApplying ? `APPLYING: ${activeScenario?.toUpperCase()}` : activeScenario?.toUpperCase()}
                     </span>
                     {isApplying && (
@@ -394,7 +405,7 @@ function MiniChart({
                         width={35}
                         axisLine={false}
                         tickLine={false}
-                        ticks={3}
+                        tickCount={3}
                         tick={{ fontSize: 8, fill: "rgba(255,255,255,0.3)" }}
                         tickFormatter={(v) => `${v}${unit}`}
                     />
