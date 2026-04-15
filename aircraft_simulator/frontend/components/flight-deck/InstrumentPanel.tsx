@@ -199,10 +199,7 @@ export default function InstrumentPanel({ state, history, sendCommand, connected
                 <HudMetric label="Roll" value={`${deg(state?.phi)}°`} />
                 <HudMetric label="Yaw" value={`${deg(state?.psi)}°`} />
                 <HudMetric label="Alt" value={`${fix(state?.altitude_m, 0)} m`} />
-                <HudMetric
-                    label="Speed"
-                    value={`${state ? Math.sqrt(state.u ** 2 + state.v ** 2 + state.w ** 2).toFixed(1) : "--"} m/s`}
-                />
+                <SpeedHudMetric state={state} />
             </div>
 
             {/* ── Scenarios ────────────────────────────────────────── */}
@@ -430,12 +427,46 @@ function MiniChart({
     );
 }
 
-function HudMetric({ label, value }: { label: string; value: string }) {
+function HudMetric({ label, value, secondary }: { label: string; value: string; secondary?: React.ReactNode }) {
     return (
-        <div className="hud-metric">
-            <span className="hud-metric-label">{label}</span>
-            <span className="hud-metric-value">{value}</span>
+        <div className="hud-metric" style={{ display: "flex", flexDirection: "column", alignItems: "stretch", height: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <span className="hud-metric-label">{label}</span>
+                <span className="hud-metric-value">{value}</span>
+            </div>
+            {secondary && (
+                <div style={{ textAlign: "right", marginTop: 2 }}>
+                    {secondary}
+                </div>
+            )}
         </div>
+    );
+}
+
+function SpeedHudMetric({ state }: { state: FlightState | null }) {
+    if (!state) return <HudMetric label="Speed" value="-- m/s" />;
+    
+    const speed_mps = Math.sqrt(state.u ** 2 + state.v ** 2 + state.w ** 2);
+    const showSecondary = speed_mps > 80;
+    
+    // 1 m/s = 1.944 knots
+    const speed_knots = speed_mps * 1.944;
+    // Mach approximation (Sea level/Low alt focus)
+    const mach = speed_mps / 340;
+
+    const secondary = showSecondary ? (
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", fontSize: 10, fontFamily: "var(--font-mono)", color: "rgba(255,255,255,0.5)" }}>
+            <span>{speed_knots.toFixed(0)} KT</span>
+            <span>M {mach.toFixed(2)}</span>
+        </div>
+    ) : undefined;
+
+    return (
+        <HudMetric 
+            label="Speed" 
+            value={`${speed_mps.toFixed(1)} m/s`} 
+            secondary={secondary}
+        />
     );
 }
 

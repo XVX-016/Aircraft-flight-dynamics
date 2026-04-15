@@ -7,6 +7,7 @@ import threading
 from dataclasses import asdict
 from typing import Any, Dict, Optional
 from pathlib import Path
+import traceback
 
 import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -41,6 +42,7 @@ from adcs_core.api import (
     post_step_sanitize,
     rk4_step,
     rotation_body_to_inertial,
+    xdot_full,
 )
 from adcs_core.analysis.lqr_longitudinal import LONGITUDINAL_STATE_IDX_FULL, LONGITUDINAL_INPUT_IDX_FULL
 from adcs_core.analysis.lqr_lateral import LATERAL_STATE_IDX_FULL, LATERAL_INPUT_IDX_FULL
@@ -143,17 +145,23 @@ class SimRuntime:
         self.dryden = DrydenTurbulence(intensity=self.turbulence_intensity, seed=self.seed + 5)
 
         self.last_packet: Dict[str, Any] = {}
+        self.category = "stable"
         
         # Initial trim and gain calculation
-        self.recompute_gains()
+        self.recompute_gains(category=self.category)
 
-    def recompute_gains(self) -> None:
+    def recompute_gains(self, category: str = "stable") -> Dict[str, Any]:
         """
         Computes the LQR gains based on current aircraft and targets.
         """
         try:
             # 1. Trim for current target airspeed
-            trim = compute_level_trim(self.targets.airspeed_mps, self.params, limits=self.limits)
+            trim = compute_level_trim(
+                self.targets.airspeed_mps, 
+                self.params, 
+                limits=self.limits,
+                aircraft_category=category
+            )
             self.trim_x0 = trim.x0
             self.trim_u0 = trim.u0
 
@@ -171,33 +179,57 @@ class SimRuntime:
             self.K_lon = design_lon.K
             self.K_lat = design_lat.K
             
-            # Reset state to trim (optional, but good for stability on change)
-            # self.state = State.from_vector(trim.x0)
+            return {"success": True, "error": None}
         except Exception as e:
-            print(f"Error computing LQR gains: {e}")
+            err_msg = f"Error computing LQR gains: {e}\n{traceback.format_exc()}"
+            print(err_msg)
+            return {"success": False, "error": str(e)}
 
     def select_aircraft(self, aircraft_id: str) -> Dict[str, Any]:
         model = get_aircraft_model(aircraft_id)
+        
+        # Aircraft classification awareness
+        is_fighter = model.classification == "fighter" or model.stability_mode == "relaxed"
+        if is_fighter:
+            v_init = 150.0
+            alt_init = 3000.0
+            category = "relaxed"
+            print(f">>> Selecting high-performance aircraft '{model.name}' [{model.id}]")
+            print(f">>> Setting initial conditions: {v_init} m/s at {alt_init} m altitude.")
+        else:
+            v_init = 35.0
+            alt_init = 1000.0
+            category = "stable"
+            print(f">>> Selecting standard aircraft '{model.name}' [{model.id}]")
+            print(f">>> Setting initial conditions: {v_init} m/s at {alt_init} m altitude.")
+
         with self.lock:
             self.selected_aircraft_id = model.id
             self.params = model.params
             self.limits = model.limits
             
+            # Reset Targets
+            self.targets = AutopilotTargets(airspeed_mps=v_init, altitude_m=alt_init, heading_rad=0.0)
+            
             # Reset state for the new aircraft
-            self.state = State(x=0.0, y=0.0, z=-1000.0, u=35.0, v=0.0, w=0.0)
+            self.state = State(x=0.0, y=0.0, z=-alt_init, u=v_init, v=0.0, w=0.0)
             self.t = 0.0
             
             self.act = ActuatorState(tau_s=0.15, limits=self.limits)
             self.act.reset(ControlInputs(throttle=0.5))
             self.failures = FailureManager()
             
-            self.recompute_gains()
+            self.category = category
+            res = self.recompute_gains(category=self.category)
+            if not res["success"]:
+                print(f"WARNING: Selection completed but gains could not be computed: {res['error']}")
 
         return {
             "id": model.id,
             "name": model.name,
             "classification": model.classification,
             "stability_mode": model.stability_mode,
+            "init_status": res,
         }
 
     def set_wind(self, n: float, e: float, d: float) -> None:
@@ -214,7 +246,7 @@ class SimRuntime:
             )
             # If airspeed target changed significantly, recompute gains
             if V is not None and abs(V - old_V) > 1.0:
-                self.recompute_gains()
+                self.recompute_gains(category=self.category)
 
     def set_autopilot(self, enabled: bool) -> None:
         with self.lock:

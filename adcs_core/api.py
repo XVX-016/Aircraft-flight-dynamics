@@ -26,9 +26,9 @@ from adcs_core.state import State
 from adcs_core.state.state_definition import ControlIndex, StateIndex
 
 
-def compute_trim(*args, **kwargs) -> TrimResult:
+def compute_trim(V_mps: float, params: AircraftParameters, *, limits: ActuatorLimits | None = None, aircraft_category: str = "stable") -> TrimResult:
     """Public trim entrypoint."""
-    return compute_level_trim(*args, **kwargs)
+    return compute_level_trim(V_mps, params, limits=limits, aircraft_category=aircraft_category)
 
 
 def compute_modal_analysis(A: np.ndarray, *args, **kwargs) -> ModalAnalysisResult:

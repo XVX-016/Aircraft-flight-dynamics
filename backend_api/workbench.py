@@ -119,6 +119,7 @@ def resolve_model_from_payload(payload: Dict[str, Any], current_model: AircraftM
         model = current_model
     else:
         model = get_aircraft_model("cessna_172r")
+        
     adjusted = apply_flight_condition(model.params, fc)
     return replace(model, params=adjusted), fc
 
@@ -177,7 +178,7 @@ def compute_metrics_from_modal(modal: dict[str, Any]) -> dict[str, float | None]
 
 def build_analysis_bundle(payload: Dict[str, Any], current_model: AircraftModel | None = None) -> dict[str, Any]:
     model, fc = resolve_model_from_payload(payload, current_model=current_model)
-    trim = compute_level_trim(fc["V_mps"], model.params, limits=model.limits)
+    trim = compute_level_trim(fc["V_mps"], model.params, limits=model.limits, aircraft_category=model.stability_mode)
     A, B = linearize_full(trim.x0, trim.u0, model.params, model.limits)
     eigvals = np.linalg.eigvals(A)
     modal = analyze_modal_structure(A).as_dict()

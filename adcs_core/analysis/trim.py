@@ -84,6 +84,7 @@ def compute_level_trim(
     *,
     limits: ActuatorLimits | None = None,
     residual_tol: float = 1e-6,
+    aircraft_category: str = "stable",
 ) -> TrimResult:
     """
     Nonlinear level-flight trim solve (longitudinal baseline).
@@ -106,10 +107,22 @@ def compute_level_trim(
         dtype=float,
     )
 
+    # Dynamic bounds based on aircraft category
+    is_relaxed = aircraft_category.lower() in ["relaxed", "fighter", "unstable"]
+    
+    if is_relaxed:
+        # Relaxed stability or high-performance: wider range for high-alpha trim
+        a_limit = np.deg2rad(25.0)
+        t_limit = np.deg2rad(30.0)
+    else:
+        # Stable/Standard category
+        a_limit = np.deg2rad(20.0)
+        t_limit = np.deg2rad(25.0)
+
     bounds_lo = np.array(
         [
-            np.deg2rad(-20.0),                  # alpha
-            np.deg2rad(-20.0),                  # theta
+            -a_limit,                           # alpha
+            -t_limit,                           # theta
             -limits.elevator_max_rad,           # de
             0.0,                                # throttle
         ],
@@ -117,8 +130,8 @@ def compute_level_trim(
     )
     bounds_hi = np.array(
         [
-            np.deg2rad(25.0),                   # alpha
-            np.deg2rad(25.0),                   # theta
+            a_limit,                            # alpha
+            t_limit,                            # theta
             limits.elevator_max_rad,            # de
             1.0,                                # throttle
         ],
