@@ -16,16 +16,64 @@ const DEFAULT_AIRCRAFT = "cessna_172r";
 interface FlightAircraftMeshProps {
     state: FlightState | null;
     aircraftId: string | null;
+    classification: string | null;
+    wingspan: number | null;
 }
 
-export default function FlightAircraftMesh({ state, aircraftId }: FlightAircraftMeshProps) {
+export default function FlightAircraftMesh({ state, aircraftId, classification, wingspan }: FlightAircraftMeshProps) {
     const effectiveId = aircraftId || DEFAULT_AIRCRAFT;
-    const paths = MODEL_PATHS[effectiveId] ?? MODEL_PATHS[DEFAULT_AIRCRAFT];
+    const isCustom = effectiveId.startsWith("custom-");
+    
+    // Built-in aircraft mapping
+    const paths = useMemo(() => {
+        return MODEL_PATHS[effectiveId] ?? MODEL_PATHS[DEFAULT_AIRCRAFT];
+    }, [effectiveId]);
+
     const modelPath = paths[0];
 
     return (
         <group>
-            <MeshInner state={state} modelPath={modelPath} />
+            {isCustom ? (
+                <ProceduralAircraft state={state} wingspan={wingspan} />
+            ) : (
+                <MeshInner state={state} modelPath={modelPath} />
+            )}
+        </group>
+    );
+}
+
+function ProceduralAircraft({ state, wingspan }: { state: FlightState | null; wingspan: number | null }) {
+    const groupRef = useRef<THREE.Group>(null);
+    const span = wingspan || 10;
+
+    useFrame(() => {
+        if (!groupRef.current || !state) return;
+        groupRef.current.position.set(state.x, -state.z, -state.y);
+        groupRef.current.rotation.set(state.theta, -state.psi, state.phi, "YXZ");
+    });
+
+    return (
+        <group ref={groupRef}>
+            {/* Fuselage */}
+            <mesh position={[0, 0, 0]}>
+                <boxGeometry args={[2, 0.3, 0.3]} />
+                <meshBasicMaterial color="#444444" wireframe={true} />
+            </mesh>
+            {/* Wings */}
+            <mesh position={[0, 0, 0]}>
+                <boxGeometry args={[span, 0.1, 1.5]} />
+                <meshBasicMaterial color="#444444" wireframe={true} />
+            </mesh>
+            {/* Tail Vertical Fin */}
+            <mesh position={[-0.8, 0.3, 0]}>
+                <boxGeometry args={[0.5, 0.5, 0.1]} />
+                <meshBasicMaterial color="#444444" wireframe={true} />
+            </mesh>
+            {/* Tail Horizontal Stab */}
+            <mesh position={[-0.8, 0, 0]}>
+                <boxGeometry args={[0.5, 0.05, 2.5]} />
+                <meshBasicMaterial color="#444444" wireframe={true} />
+            </mesh>
         </group>
     );
 }

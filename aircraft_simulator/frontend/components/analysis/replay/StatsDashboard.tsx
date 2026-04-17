@@ -2,13 +2,14 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { FlightRecord, ScenarioLabel } from "@/types/FlightRecord";
+import { FlightRecord } from "@/types/FlightRecord";
 
 interface StatsDashboardProps {
     records: FlightRecord[];
+    scenario: string;
 }
 
-export default function StatsDashboard({ records }: StatsDashboardProps) {
+export default function StatsDashboard({ records, scenario }: StatsDashboardProps) {
     const stats = useMemo(() => {
         if (records.length === 0) return null;
 
@@ -31,22 +32,27 @@ export default function StatsDashboard({ records }: StatsDashboardProps) {
             distance += Math.sqrt(dx * dx + dy * dy);
         }
 
-        // Scenario Detection
-        let label: ScenarioLabel = "Straight and Level";
-        if (maxRoll > 20) label = "Banked Turn / Steep Turn";
-        else if (maxAlt - minAlt > 200) label = "Climb/Descent";
-        else if (maxSpeed - minSpeed > 5) label = "Variable Speed Profile";
-        else if (maxY > 50) label = "Crosswind Drift";
-
         return {
             duration,
             maxAlt,
             maxSpeed,
             maxRoll,
-            distance,
-            label
+            distance
         };
     }, [records]);
+
+    const getScenarioColor = (scenario: string) => {
+        switch (scenario) {
+            case "Banked Turn": return "border-amber-500/50 bg-amber-500/10 text-amber-300";
+            case "Climb / Descent": return "border-blue-500/50 bg-blue-500/10 text-blue-300";
+            case "Variable Speed Profile": return "border-rose-500/50 bg-rose-500/10 text-rose-300";
+            case "Crosswind Drift": return "border-cyan-500/50 bg-cyan-500/10 text-cyan-300";
+            case "Straight & Level": return "border-emerald-500/50 bg-emerald-500/10 text-emerald-300";
+            default: return "border-white/20 bg-white/10 text-white";
+        }
+    };
+
+    if (!stats) return null;
 
     if (!stats) return null;
 
@@ -56,8 +62,8 @@ export default function StatsDashboard({ records }: StatsDashboardProps) {
                 <div className="flex items-center gap-4">
                     <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/60">Flight Profile Detected:</span>
-                    <span className="px-3 py-1 bg-white/10 border border-white/20 text-white font-bold text-[10px] uppercase tracking-wider rounded">
-                        {stats.label}
+                    <span className={`px-3 py-1 border text-[10px] font-bold uppercase tracking-wider rounded hud-panel ${getScenarioColor(scenario)}`}>
+                        {scenario}
                     </span>
                 </div>
             </div>

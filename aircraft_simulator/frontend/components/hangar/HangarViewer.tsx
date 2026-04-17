@@ -9,6 +9,7 @@ interface HangarViewerProps {
     aircraftId: string | null;
     name: string | null;
     wingspan: number | null;
+    classification: string | null;
 }
 
 const MODEL_PATHS: Record<string, string[]> = {
@@ -116,8 +117,18 @@ class ModelErrorBoundary extends React.Component<
     }
 }
 
-export default function HangarViewer({ aircraftId, name, wingspan }: HangarViewerProps) {
-    const paths = useMemo(() => (aircraftId ? MODEL_PATHS[aircraftId] ?? [] : []), [aircraftId]);
+export default function HangarViewer({ aircraftId, name, wingspan, classification }: HangarViewerProps) {
+    const paths = useMemo(() => {
+        if (!aircraftId) return [];
+        
+        // Custom aircraft mapping
+        if (aircraftId.startsWith("custom-")) {
+            const isFighterLike = classification === "fighter" || classification === "relaxed";
+            return isFighterLike ? MODEL_PATHS["f16_research"] : MODEL_PATHS["cessna_172r"];
+        }
+
+        return MODEL_PATHS[aircraftId] ?? [];
+    }, [aircraftId, classification]);
 
     const cameraPos = useMemo(() => {
         // Model is normalized to targetDim=6.0

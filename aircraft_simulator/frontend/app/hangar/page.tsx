@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { buildAircraftRequest, postJSON } from "@/lib/api";
 import AircraftSpecs from "@/components/hangar/AircraftSpecs";
 import HangarViewer from "@/components/hangar/HangarViewer";
 import { HangarMetadata } from "@/components/hangar/HangarMetadata";
@@ -109,6 +110,7 @@ export default function HangarPage() {
         exportCustomAircraft,
         setAircraft,
         selectCustomAircraft,
+        flightCondition,
     } = useAircraftContext();
 
     const router = useRouter();
@@ -183,11 +185,32 @@ export default function HangarPage() {
         }, 50);
     };
 
+    const [confirmation, setConfirmation] = useState<any>(null);
+
     const handleFly = async () => {
         if (!selectedAircraftId) return;
-        // The setAircraft call in context already POSTs to /api/v1/aircraft/select
-        // which triggers recompute_gains() on the backend.
-        router.push("/flight-deck");
+        
+        setLoading(true);
+        try {
+            // If custom, send the full draft. If preset, just send the ID.
+            const payload = selectedAircraftKind === "custom" 
+                ? { custom_aircraft: draft, ...flightCondition } 
+                : { aircraft_id: selectedAircraftId, ...flightCondition };
+
+            const response = await postJSON<any>("/api/v1/aircraft/select", payload);
+            
+            // Show confirmation with computed metrics from the backend
+            setConfirmation(response);
+            
+            // Brief pause to let user see metrics, then fly
+            setTimeout(() => {
+                router.push("/flight-deck");
+            }, 2500);
+        } catch (err) {
+            setConfirmation(null);
+            setLoading(false);
+            // Error handling already handled by postJSON? Unlikely to reach here if fetch fails.
+        }
     };
 
     return (
@@ -259,9 +282,13 @@ export default function HangarPage() {
                             }`}
                         >
                             <span className="text-sm font-bold uppercase tracking-[0.2em]">Fly This Aircraft</span>
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                            </svg>
+                            {loading ? (
+                                <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                            ) : (
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                </svg>
+                            )}
                         </button>
 
                         {/* Specs — grows to fill remaining column height */}
@@ -286,6 +313,7 @@ export default function HangarPage() {
                                 aircraftId={selectedAircraftId}
                                 name={metadata?.name ?? null}
                                 wingspan={aircraftData?.geometry.wingspan ?? null}
+                                classification={metadata?.classification ?? null}
                             />
                         </div>
 
@@ -419,12 +447,16 @@ export default function HangarPage() {
                     </div>
                 )}
 
-                {loading && (
-                    <div className="text-xs font-mono text-white/60">
-                        Computing updated aircraft dataset...
-                    </div>
-                )}
+
             </main>
+        </div>
+    );
+}
+function MetricBadge({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="bg-white/5 border border-white/10 rounded-lg px-4 py-3">
+            <div className="text-[8px] uppercase text-white/40 font-mono mb-1 font-bold tracking-wider">{label}</div>
+            <div className="text-[12px] font-bold text-cyan-100/90 font-mono tracking-tight">{value}</div>
         </div>
     );
 }

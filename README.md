@@ -34,6 +34,14 @@ ADCS-SIM is a high-fidelity, full-envelope flight dynamics and control research 
 - **React Three Fiber (WebGL)**: 3D flight deck with Chase, Top-Down, and Side-Profile cameras.
 - **Glass Cockpit HUD**: Modern instrument panel with real-time charts for Altitude, Airspeed, and Control Effort.
 
+### 🎥 Flight Replay Theater
+- **Offline 3D Trajectory Reconstruction**: Load exported CSV telemetry for post-flight analysis.
+- **Synchronized Scrubbing**: Interactive timeline controls that simultaneously update altitude, airspeed, pitch, and roll charts.
+
+### ✏️ Custom Aircraft Design
+- **Full Parameter Editor**: Modify mass, inertia, geometry, and aerodynamic derivatives in the Hangar interface.
+- **Live Analysis**: Real-time trim and stability analysis before flight to validate custom configurations.
+
 ---
 
 ## 🛠️ Technology Stack
@@ -44,6 +52,17 @@ ADCS-SIM is a high-fidelity, full-envelope flight dynamics and control research 
 | **Frontend** | Next.js 14, React, Three.js (R3F), TailwindCSS, Recharts |
 | **Integrator** | Runge-Kutta 4 (RK4) |
 | **Communication** | WebSockets (High-Frequency Stream) |
+
+---
+
+## ✈️ Aircraft Models
+
+ADCS-SIM includes validated aircraft models covering different stability characteristics:
+
+| Model | Classification | Stability | Notes |
+|-------|----------------|-----------|-------|
+| **Cessna 172R** | Trainer | Stable | Conventional stable aircraft, excellent for learning basic flight dynamics |
+| **F-16** | Fighter | Relaxed | High-performance fighter with relaxed static stability, requires active LQR control |
 
 ---
 
@@ -112,6 +131,14 @@ ADCS-SIM utilizes a decoupled architecture to separate heavy numerical computati
 
 ---
 
-## 📄 License
+## � Screenshots
+
+- Flight Deck Interface: `docs/screenshots/flight_deck.png`
+- Flight Replay Theater: `docs/screenshots/flight_replay.png`
+- Custom Aircraft Hangar: `docs/screenshots/hangar_custom.png`
+
+---
+
+## �📄 License
 
 This project is licensed under the MIT License - see the `LICENSE` file for details.

@@ -10,7 +10,7 @@ from pathlib import Path
 import traceback
 
 import numpy as np
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -47,6 +47,7 @@ from adcs_core.api import (
 from adcs_core.analysis.lqr_longitudinal import LONGITUDINAL_STATE_IDX_FULL, LONGITUDINAL_INPUT_IDX_FULL
 from adcs_core.analysis.lqr_lateral import LATERAL_STATE_IDX_FULL, LATERAL_INPUT_IDX_FULL
 from adcs_core.environment.dryden import DrydenTurbulence
+
 from backend_api.workbench import (
     build_analysis_bundle,
     control_response,
@@ -55,6 +56,7 @@ from backend_api.workbench import (
     frequency_response,
     linearization_response,
     mode_shapes_response,
+    resolve_model_from_payload,
     serialize_model,
     step_response,
     trim_response,
@@ -179,14 +181,28 @@ class SimRuntime:
             self.K_lon = design_lon.K
             self.K_lat = design_lat.K
             
-            return {"success": True, "error": None}
+            return {
+                "success": True, 
+                "error": None,
+                "trim": {
+                    "alpha_rad": float(trim.alpha),
+                    "theta_rad": float(trim.theta),
+                    "throttle": float(trim.throttle),
+                    "elevator_rad": float(trim.elevator),
+                }
+            }
         except Exception as e:
             err_msg = f"Error computing LQR gains: {e}\n{traceback.format_exc()}"
             print(err_msg)
             return {"success": False, "error": str(e)}
 
-    def select_aircraft(self, aircraft_id: str) -> Dict[str, Any]:
-        model = get_aircraft_model(aircraft_id)
+    def select_aircraft(self, aircraft_id: str | None = None, model_override: Any = None) -> Dict[str, Any]:
+        if model_override:
+            model = model_override
+        elif aircraft_id:
+            model = get_aircraft_model(aircraft_id)
+        else:
+            raise ValueError("Must provide aircraft_id or model_override")
         
         # Aircraft classification awareness
         is_fighter = model.classification == "fighter" or model.stability_mode == "relaxed"
@@ -381,15 +397,28 @@ runtime = SimRuntime()
 
 @app.post("/api/v1/aircraft/select")
 def select_aircraft(payload: Dict[str, Any]) -> Dict[str, Any]:
-    aircraft_id = payload.get("aircraft_id") or payload.get("id")
-    if not aircraft_id:
-        return {"error": "Missing 'aircraft_id' in request body."}
     try:
-        meta = runtime.select_aircraft(str(aircraft_id))
-        model = get_aircraft_model(str(aircraft_id))
+        model, _ = resolve_model_from_payload(payload, current_model=get_aircraft_model(runtime.selected_aircraft_id))
+        meta = runtime.select_aircraft(model_override=model)
+        
+        if not meta["init_status"]["success"]:
+            raise HTTPException(status_code=422, detail=meta["init_status"]["error"])
+            
+        return {**serialize_model(model), "selected_aircraft": meta}
     except KeyError as exc:
-        return {"error": str(exc)}
-    return {**serialize_model(model), "selected_aircraft": meta}
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/v1/aircraft/custom/analyze")
+def analyze_custom_aircraft(payload: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        return custom_aircraft_response(payload)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @app.post("/api/v1/analysis/trim")

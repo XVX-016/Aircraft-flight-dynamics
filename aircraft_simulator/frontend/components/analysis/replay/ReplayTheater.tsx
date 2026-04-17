@@ -8,6 +8,24 @@ import StatsDashboard from "./StatsDashboard";
 import ReplayCharts from "./ReplayCharts";
 import ReplayViewport from "./ReplayViewport";
 
+function detectScenario(records: FlightRecord[]): string {
+    if (records.length === 0) return "Straight & Level";
+
+    const maxRoll = Math.max(...records.map(r => Math.abs(r.phi_deg)));
+    const maxAlt = Math.max(...records.map(r => r.altitude_m));
+    const minAlt = Math.min(...records.map(r => r.altitude_m));
+    const speeds = records.map(r => Math.sqrt(r.u ** 2 + r.v ** 2 + r.w ** 2));
+    const maxSpeed = Math.max(...speeds);
+    const minSpeed = Math.min(...speeds);
+    const maxY = Math.max(...records.map(r => Math.abs(r.y)));
+
+    if (maxRoll > 20) return "Banked Turn";
+    if (maxAlt - minAlt > 200) return "Climb / Descent";
+    if (maxSpeed - minSpeed > 5) return "Variable Speed Profile";
+    if (maxY > 50) return "Crosswind Drift";
+    return "Straight & Level";
+}
+
 export default function ReplayTheater() {
     const [records, setRecords] = useState<FlightRecord[]>([]);
     const [currentTime, setCurrentTime] = useState(0);
@@ -18,6 +36,8 @@ export default function ReplayTheater() {
             setCurrentTime(data[0].time);
         }
     };
+
+    const scenario = detectScenario(records);
 
     if (records.length === 0) {
         return (
@@ -30,7 +50,7 @@ export default function ReplayTheater() {
     return (
         <div className="space-y-8 animate-fade-in-up">
             {/* Header / Stats */}
-            <StatsDashboard records={records} />
+            <StatsDashboard records={records} scenario={scenario} />
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
                 {/* 3D Viewport - Takes more space on large screens */}

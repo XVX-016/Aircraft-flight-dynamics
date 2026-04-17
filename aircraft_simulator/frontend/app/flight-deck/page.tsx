@@ -29,7 +29,7 @@ export default function FlightDeckPage() {
 
 function FlightDeckInner() {
     const { state, history, sendCommand, status, connected } = useFlightSimContext();
-    const { selectedAircraftId } = useAircraftContext();
+    const { selectedAircraftId, metadata, aircraftData } = useAircraftContext();
 
     // View tracking refs
     const chaseRef = useRef<HTMLDivElement>(null!);
@@ -63,6 +63,12 @@ function FlightDeckInner() {
                         <span className={`connection-dot ${dotClass}`} />
                         <span>{statusLabel}</span>
                     </div>
+
+                    {selectedAircraftId?.startsWith("custom-") && (
+                        <div className="custom-aircraft-badge">
+                            CUSTOM AIRCRAFT
+                        </div>
+                    )}
                 </div>
 
                 {/* Panel 2: Top-down map */}
@@ -109,6 +115,8 @@ function FlightDeckInner() {
                             <FlightAircraftMesh
                                 state={state}
                                 aircraftId={selectedAircraftId}
+                                classification={metadata?.classification ?? null}
+                                wingspan={aircraftData?.geometry.wingspan ?? null}
                             />
                             <FlightTrail history={history} />
                             <GroundGrid />
@@ -122,6 +130,8 @@ function FlightDeckInner() {
                             <FlightAircraftMesh
                                 state={state}
                                 aircraftId={selectedAircraftId}
+                                classification={metadata?.classification ?? null}
+                                wingspan={aircraftData?.geometry.wingspan ?? null}
                             />
                             <FlightTrail history={history} />
                             <WindArrow />
@@ -136,6 +146,8 @@ function FlightDeckInner() {
                             <FlightAircraftMesh
                                 state={state}
                                 aircraftId={selectedAircraftId}
+                                classification={metadata?.classification ?? null}
+                                wingspan={aircraftData?.geometry.wingspan ?? null}
                             />
                             <FlightTrail history={history} />
                             <GroundGrid />
