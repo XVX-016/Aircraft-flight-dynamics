@@ -14,7 +14,7 @@ ADCS-SIM is a high-fidelity, full-envelope flight dynamics and control research 
 ### ✈️ 6-DOF Flight Physics
 - **Nonlinear Dynamics**: High-fidelity 6-DOF rigid body equations of motion solved via **Runge-Kutta 4 (RK4)** integration.
 - **Flight Envelope**: Comprehensive aerodynamic modeling covering stall, high-alpha, and Mach-dependent effects.
-- **Dryden Turbulence**: Stochastic wind model implementing MIL-F-8785C standards for atmospheric disturbance simulation.
+- **Dryden Turbulence**: Stochastic wind model implementing MIL-HDBK-1797 standards for atmospheric disturbance simulation.
 
 ### 🕹️ Advanced Controls & Autopilot
 - **Full-State LQR**: Integrated Longitudinal and Lateral-Directional **Linear Quadratic Regulators** for robust trajectory tracking.
@@ -76,7 +76,7 @@ ADCS-SIM includes validated aircraft models covering different stability charact
 ### 2. Backend Setup
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/aircraft-flight-dynamics.git
+git clone https://github.com/XVX-016/aircraft-flight-dynamics.git
 cd aircraft-flight-dynamics
 
 # Create virtual environment
@@ -109,9 +109,30 @@ Open [http://localhost:3000](http://localhost:3000) to access the Flight Deck.
 
 ADCS-SIM utilizes a decoupled architecture to separate heavy numerical computation from client-side rendering:
 
-1.  **Physics Core (`adcs_core`)**: Pure Python implementation of aircraft dynamics. Dependency-free for maximum portability.
+1.  **Physics Core (`adcs_core`)**: Pure Python implementation of aircraft dynamics. Built on NumPy and SciPy for high-performance numerical computation.
 2.  **API Layer (`backend_api`)**: FastAPI handles long-lived WebSocket connections. It manages a `SimRuntime` instance that steps the physics engine at 50Hz.
 3.  **UI (`frontend`)**: A React-based dashboard. It consumes the telemetry stream and updates the 3D scene and HUD metrics with sub-millisecond latency.
+
+---
+
+## ⚙️ How It Works
+
+1. **Selection**: User selects an aircraft (built-in or custom) in the Hangar.
+2. **Analysis**: The backend trims the aircraft for steady-state flight and linearizes the dynamics.
+3. **Control**: Optimal LQR feedback gains are synthesized to ensure stability and trajectory tracking.
+4. **Simulation**: The physics engine integrates the 6-DOF nonlinear equations of motion.
+5. **Streaming**: Telemetry (state, inputs, sensor data) is streamed via WebSockets at 50Hz.
+6. **Visualization**: The React Three Fiber frontend consumes the stream, rendering the 3D aircraft and HUD in real time.
+
+---
+
+## 🔬 Research Applications
+
+- Autopilot control law design and optimization
+- Stability margin and handling qualities analysis
+- Atmospheric disturbance modeling and rejection
+- Sensor fusion and state estimation via EKF
+- Custom airframe configuration feasibility testing
 
 ---
 
@@ -131,14 +152,27 @@ ADCS-SIM utilizes a decoupled architecture to separate heavy numerical computati
 
 ---
 
-## � Screenshots
+## 📸 Screenshots
 
-- Flight Deck Interface: `docs/screenshots/flight_deck.png`
-- Flight Replay Theater: `docs/screenshots/flight_replay.png`
-- Custom Aircraft Hangar: `docs/screenshots/hangar_custom.png`
+![Flight Deck](docs/screenshots/flight_deck.png)
+*Flight Deck Interface with real-time HUD and WebGL visualization*
+
+![Flight Replay Theater](docs/screenshots/flight_replay.png)
+*Offline Flight Replay Theater with synchronized scrubbing*
+
+![Custom Aircraft Hangar](docs/screenshots/hangar_custom.png)
+*Custom Aircraft Hangar for geometry and aerodynamic modifications*
 
 ---
 
-## �📄 License
+## 👥 Contributors / Contact
+
+Developed for advanced aerospace engineering research and education.
+
+For issues, feature requests, or contributions, please open an issue or pull request on GitHub.
+
+---
+
+## 📄 License
 
 This project is licensed under the MIT License - see the `LICENSE` file for details.
